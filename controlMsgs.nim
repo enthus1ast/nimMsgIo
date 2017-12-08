@@ -7,12 +7,17 @@
 #    distribution, for details about the copyright.
 #
 type
-  MsgToServer = object
-    target: string
-    toGroup: bool
-    payload: string
-  MsgFromServer = object
-    sender: string
-    target: string
-    fromGroup: bool
-    payload: string
+  MsgType* = enum
+    GROUP
+    CLIENT
+    SERVER
+  MsgBase = object of RootObj
+    target*: string
+    sourceType: MsgType
+    targetType: MsgType
+    event*: string
+    payload*: string
+    # msgId*: int
+  MsgToServer* = object of MsgBase
+  MsgFromServer = object of MsgBase
+    sender*: string

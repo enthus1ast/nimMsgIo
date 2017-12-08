@@ -13,53 +13,28 @@ import random, future, options
 
 
 type # Both
-  NameSpace = string # "mandant" rooms with same name could exists on multiple NameSpaces
-  RoomId = string
+  NameSpace* = string # "mandant" rooms with same name could exists on multiple NameSpaces
+  RoomId* = string
   
 type # Server
-  Room = object 
-    roomId: RoomId
-    # roomName: string
-    clients: Clients # all joined clients 
-  ClientId = int
+  ClientId* = int
   Client* = object
     clientId*: ClientId
-    websocket: AsyncSocket
-  Clients = TableRef[ClientId, Client]
-  Rooms = TableRef[RoomId, Room]
+    websocket*: AsyncSocket
+  Clients* = TableRef[ClientId, Client]
+  Room* = object 
+    roomId*: RoomId
+    clients*: Clients # all joined clients 
+  Rooms* = TableRef[RoomId, Room]
   WebsocketIoLogic* = object
-    namespace: NameSpace # the namespace this server is responsible for
-    clients: Clients # all connected clients
-    rooms: Rooms # all created rooms.
+    namespace*: NameSpace # the namespace this server is responsible for
+    clients*: Clients # all connected clients
+    rooms*: Rooms # all created rooms.
 
-
-# client api
-# proc connect(wsio: WebsocketIo, namespace: NameSpace, uri: string) = 
-#   discard
-
-# Both
-# proc sendText()
-# proc sendBinary()
-
-# server
-
-# proc onClientConnected(wsio: WebsocketIo, client: Client): Future[void] {.async.} =
-#   # Callback called by the server when a new client connects.
-#   discard
-
-# proc onClientDisconnected(wsio: WebsocketIo, client: Client) =
-#   # Callback called by the server when a client disconnects.
-#   discard
-
-proc onClientMsg(wsio: WebsocketIoLogic, client: Client, target: int) =
-  ## Callback called by the server when a client, 
-  ## Sends a message.
-  discard
-
-proc newClients(): Clients =
+proc newClients*(): Clients =
   result = newTable[ClientId, Client]()
 
-proc newRooms(): Rooms =
+proc newRooms*(): Rooms =
   result = newTable[RoomId, Room]()
   
 proc newWebsocketIoLogic*(namespace: NameSpace = "default"): WebsocketIoLogic =
@@ -73,12 +48,12 @@ proc newWebsocketIoLogic*(namespace: NameSpace = "default"): WebsocketIoLogic =
   # result.onClientJoinRoom = nil
   # result.onClientLeaveRoom = nil
 
-proc newClient(clientId: ClientId = -1): Client =
+proc newClient*(clientId: ClientId = -1): Client =
   result = Client()
   result.clientId = clientId
   # result.
 
-proc newRoom(roomId: RoomId): Room = 
+proc newRoom*(roomId: RoomId): Room = 
   result = Room()
   result.roomId = roomId
   result.clients = newClients()
@@ -89,7 +64,6 @@ proc joinRoom*(wsio: WebsocketIoLogic, client: Client, roomId: RoomId) =
   if not wsio.rooms.hasKey(roomId):
     wsio.rooms[roomId] = newRoom(roomId)
   wsio.rooms[roomId].clients.add(client.clientId, client)
-  # wsio.rooms
 
 proc leaveRoom*(wsio: WebsocketIoLogic, client: Client, roomId: RoomId) = 
   ## let client part from the given room
@@ -120,10 +94,10 @@ proc leaveAllRooms*(wsio: WebsocketIoLogic, client: Client) =
 #   ## iterates over all clients connected to this server
 #   discard
 
-proc clientIdUsed(wsio: WebsocketIoLogic, clientId: ClientId): bool =
+proc clientIdUsed*(wsio: WebsocketIoLogic, clientId: ClientId): bool =
   return wsio.clients.hasKey(clientId)
 
-proc genClientId(wsio: WebsocketIoLogic): ClientId =
+proc genClientId*(wsio: WebsocketIoLogic): ClientId =
   ## generates an unsed client id
   result = -1
   while true:
@@ -131,7 +105,7 @@ proc genClientId(wsio: WebsocketIoLogic): ClientId =
     if wsio.clientIdUsed(result): continue
     else: break
 
-proc connects(wsio: WebsocketIoLogic, client: Client): bool = 
+proc connects*(wsio: WebsocketIoLogic, client: Client): bool = 
   ## connects a client to the underlying logic
   if wsio.clientIdUsed(client.clientId): return false
   wsio.clients.add(client.clientId, client)
