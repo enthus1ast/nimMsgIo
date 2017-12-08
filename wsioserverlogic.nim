@@ -16,19 +16,27 @@ type # Both
   NameSpace* = string # "mandant" rooms with same name could exists on multiple NameSpaces
   RoomId* = string
   
+# type NetworkAbstraction* =
+#   send
+#   recv
+
 type # Server
   ClientId* = int
-  Client* = object
+  ClientIds* = seq[ClientId]
+  Client*[T] = object
     clientId*: ClientId
-    websocket*: AsyncSocket
-  Clients* = TableRef[ClientId, Client]
+    socket* : T
+    # websocket*: AsyncSocket
+    # custom*: T
+  Clients*[T] = TableRef[ClientId, T]
   Room* = object 
     roomId*: RoomId
-    clients*: Clients # all joined clients 
+    clients*: ClientIds # Clients # all joined clients 
+    # custom*: T
   Rooms* = TableRef[RoomId, Room]
-  WebsocketIoLogic* = object
+  WebsocketIoLogic*[T] = object
     namespace*: NameSpace # the namespace this server is responsible for
-    clients*: Clients # all connected clients
+    clients*: Clients[T] # all connected clients
     rooms*: Rooms # all created rooms.
 
 proc newClients*(): Clients =
@@ -53,7 +61,7 @@ proc newClient*(clientId: ClientId = -1): Client =
   result.clientId = clientId
   # result.
 
-proc newRoom*(roomId: RoomId): Room = 
+proc newRoom*[T](roomId: RoomId): Room = 
   result = Room()
   result.roomId = roomId
   result.clients = newClients()
@@ -111,13 +119,11 @@ proc connects*(wsio: WebsocketIoLogic, client: Client): bool =
   wsio.clients.add(client.clientId, client)
   return true
 
-proc disconnects*(wsio: WebsocketIoLogic, client: Client): bool =
+proc disconnects*(wsio: WebsocketIoLogic, client: Client) =
   ## disconnects a client from the underlying logic
-  if not wsio.clientIdUsed(client.clientId): return false
-  client.websocket.close()
-  wsio.leaveAllRooms(client)
-  wsio.clients.del(client.clientId)
-  return true
+  if wsio.clientIdUsed(client.clientId):
+    wsio.leaveAllRooms(client)
+    wsio.clients.del(client.clientId)
 
 when isMainModule:
   randomize()
