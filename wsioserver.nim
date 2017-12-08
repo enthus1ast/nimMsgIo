@@ -138,7 +138,6 @@ when isMainModule:
       echo counter
       counter.inc # dummy counter
       wsio.logic.joinRoom(client, "lobby") # on connect we let the client join to a default room
-
       if true:
         ## If client is allowed by the business logic to connect to the server.
         return true
