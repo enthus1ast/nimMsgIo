@@ -34,17 +34,29 @@ proc addTransport*(msgio: MsgIoServer, transport: TransportBase) =
   ##    runForever()
   msgio.transports.add transport
 
-proc onTransportClientConnected*(msgio: MsgIoServer): Future[Option[ClientId]] {.async.} = 
+proc onTransportClientConnecting*(msgio: MsgIoServer, transport: TransportBase): Future[Option[ClientId]] {.async.} = 
   ## If the option is none, the transport will immediantly disconnect
   ## the client, effectifly refuseing the connection.
-  let clientId = msgio.roomLogic.genClientId()
+  var clientId = msgio.roomLogic.genClientId()
 
-  if not msgio.onClientConnected.isNil:
-    result = await msgio.onClientConnected(msgio, clientId) ## usercallback can change the clientId!
-    # if clientIdOpt.isSome: clientId = clientIdOpt.get()
+  if not msgio.onClientConnecting.isNil:
+    result = await msgio.onClientConnecting(msgio, clientId) ## usercallback can change the clientId!
   
-  return 
-
+  if result.isNone:
+    return
+  
+  clientId = result.get()
+  echo "Transport: ", repr transport
+  msgio.clients.add(clientId, transport)
+    # if clientIdOpt.isSome: clientId = clientIdOpt.get()
+  echo repr msgio.onClientConnected
+  # echo repr msgio
+  echo repr clientId
+  if msgio.onClientConnected.isNil: 
+    echo "msgio.onClientConnected.isNil"
+    return
+  await msgio.onClientConnected(msgio, clientId) ## usercallback can change the clientId!
+  
   # ADD TO CLIENT LIST LOGIC
 
   # proc (msgio: MsgIoServer, clientId: ClientId): Future[bool] = #{.closure, gcsafe.} =
@@ -55,7 +67,9 @@ proc newMsgIoServer*(): MsgIoServer =
   result = MsgIoServer()
   result.transports = @[]
   result.roomLogic = newRoomLogic()
-  result.onTransportClientConnected = onTransportClientConnected # proc (msgio: MsgIoServer): Future[Option[ClientId]] = onTransportClientConnected(msgio)
+  result.clients = newTable[ClientId, TransportBase]()
+  result.onTransportClientConnecting = onTransportClientConnecting # proc (msgio: MsgIoServer): Future[Option[ClientId]] = onTransportClientConnecting(msgio)
+
 
 proc serve*(msgio: MsgIoServer): Future[void] {.async.} =
   for transport in msgio.transports:
@@ -68,17 +82,27 @@ when isMainModule:
     msgio = newMsgIoServer()
     transportWs = msgio.newTransportWs()
   msgio.addTransport(transportWs)
-  msgio.onClientConnected = proc (msgio: MsgIoServer, clientId: ClientId): Future[Option[ClientID]] {.async.} = #{.closure, gcsafe.} =
+  msgio.onClientConnecting = proc (msgio: MsgIoServer, clientId: ClientId): Future[Option[ClientID]] {.async.} = #{.closure, gcsafe.} =
     # discard
-    echo "CLIENT CONNECTED IN USER SERVER"
+    echo "CLIENT CONNECTING IN USER SERVER"
+    # echo msgio.transports[0]
+    # await  msgio.transports[0].send(msgio, 123.ClientId, "event", "data")
+    echo "$clientId: ", $clientId
     return some(clientId)
     # return
     # await msgio.clients[clientId].send("welcome", "welcome to this server")
     # await msgio.clients[clientId].joinGroup("lobby")
     # await msgio.rooms["lobby"].send("userJoined", clientId)
+  msgio.onClientConnected = proc (msgio: MsgIoServer, clientId: ClientId): Future[void] {.async.} = #{.closure, gcsafe.} =
+    echo "in user supplied on onClientConnected"
+    # await sleepAsync(1000)
+    echo msgio.clients.hasKey(clientId)
+    echo repr msgio.clients[clientId]
+    await msgio.clients[clientId].send(msgio, clientId, "event", "data")
+
   asyncCheck msgio.serve()
   assert msgio.transports.len == 1
   echo msgio.transports
-  discard msgio.transports[0].send(msgio, 123.ClientId, "event", "data")
+  # discard msgio.transports[0].send( 123.ClientId, "event", "data")
 
   runForever()

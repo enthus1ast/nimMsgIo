@@ -13,6 +13,8 @@ import typesMsg
 import roomLogic
 import typesShared
 export typesShared
+import tables
+export tables
 type
 
   # Transport does something:
@@ -20,11 +22,12 @@ type
   ActionTransportServe* = proc (): Future[void] {.closure, gcsafe.}
   
   # Middleware gets informed:
-  EventTransportClientConnected* = proc (msgio: MsgIoServer): Future[Option[ClientId]] {.closure, gcsafe.}  
+  EventTransportClientConnecting* = proc (msgio: MsgIoServer, transport: TransportBase): Future[Option[ClientId]] {.closure, gcsafe.}  
   EventTransportClientDisconnected* = proc (msgio: MsgIoServer, clientId: ClientId): Future[void] {.closure, gcsafe.}  
   
   # Library user gets informed in his code:
-  EventClientConnected* = proc (msgio: MsgIoServer, clientId: ClientId): Future[Option[ClientId]] {.closure, gcsafe.}  
+  EventClientConnecting* = proc (msgio: MsgIoServer, clientId: ClientId): Future[Option[ClientId]] {.closure, gcsafe.}  
+  EventClientConnected* = proc (msgio: MsgIoServer, clientId: ClientId): Future[void] {.closure, gcsafe.}  
   EventClientDisconnected* = EventTransportClientDisconnected
 
   # EventTransportJoinGroup* #= proc (msgio: MsgIoServer, clientId: ClientId): Future[void] {.closure, gcsafe.}  
@@ -33,7 +36,7 @@ type
     proto*: string        ## the readable name of the transport
     send*: ActionTransportSend  ## transports sends a msg
     serve*: ActionTransportServe  ## transports sends a msg
-    clientConnected*: EventTransportClientConnected
+    clientConnecting*: EventTransportClientConnecting
     clientDisconnected*: EventTransportClientDisconnected
     # hasClient*: -> bool
   MsgToServer* = object of MsgBase
@@ -41,14 +44,16 @@ type
     sender*: string
   Transports* = seq[TransportBase]
   MsgIoServer* = ref object
+    clients*: TableRef[ClientId, TransportBase]
     transports*: Transports
     roomLogic*: RoomLogic
 
     ## Transport Callbacks
-    onTransportClientConnected*: EventTransportClientConnected
+    onTransportClientConnecting*: EventTransportClientConnecting
     onTransportClientDisconnected*: EventTransportClientDisconnected
 
     ## User Callbacks
+    onClientConnecting*: EventClientConnecting
     onClientConnected*: EventClientConnected
     onClientDisconnected*: EventClientDisconnected
 

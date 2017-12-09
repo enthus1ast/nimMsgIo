@@ -19,14 +19,21 @@ proc handleWebsocket(transport: TransportWs, req: Request): Future[void] {.async
   #  var clientIdOpt = await transport.msgio.onClientConnected(transport.msgio, 0)
   # if transport.msgio.onTransportClientConnected.isNil: 
   #   echo "onTransportClientConnected is nil "
-  var clientIdOpt = await transport.msgio.onTransportClientConnected(transport.msgio)
+  var 
+    clientIdOpt = await transport.msgio.onTransportClientConnecting(transport.msgio, transport)
+    clientId: ClientId
+
+  # Checks
   if clientIdOpt.isNone: 
     echo "User gave the transport no ClientId, so we disconnect the fresh user..."
     req.client.close()
     return
+  clientId = clientIdOpt.get()
+  # if transport.clients.hasKey(clientId):
+  #   echo "User gave the transport an existing ClientId, so we disonnect the fresh user..."
+  #   return
 
-  
-
+  transport.clients.add(clientId, req.client)
 
 #  if not connectionAllowed: return
  
@@ -37,7 +44,6 @@ proc cb(req: Request, transport: TransportWs): Future[void] {.async.} =
   if isWebsocket: 
     echo "is ws"
     await handleWebsocket(transport,req)
-
   else: 
     echo "no http!"
 
@@ -58,6 +64,7 @@ proc newTransportWs*(msgio: MsgIoServer, namespace = "default", port: int = 9090
   result.port = port.Port
   result.httpServer = newAsyncHttpServer()
   result.namespace = namespace
+  result.clients = newTable[ClientId, AsyncSocket]()
   var transport = result
   result.send = proc(msgio: MsgIoServer, clientId: ClientId, event, data: string): Future[void] = 
     sendWebSocket(transport, msgio, clientId, event, data)
