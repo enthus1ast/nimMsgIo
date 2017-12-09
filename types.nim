@@ -11,10 +11,22 @@ import asyncdispatch
 # import typesMsgIo
 
 type
-  TransportSend* = proc (msgio: MsgIoServer, clientId: ClientId, event, data: string): Future[void] {.closure, gcsafe.}
+
+  # Transport does something:
+  ActionTransportSend* = proc (msgio: MsgIoServer, clientId: ClientId, event, data: string): Future[void] {.closure, gcsafe.}
+  ActionTransportServe* = proc (): Future[void] {.closure, gcsafe.}
+  
+  # Middleware gets informed:
+  EventTransportClientConnected* = proc (msgio: MsgIoServer, clientId: ClientId): Future[bool] {.closure, gcsafe.}  
+  EventTransportClientDisconnected* = proc (msgio: MsgIoServer, clientId: ClientId): Future[void] {.closure, gcsafe.}  
+  # EventTransportJoinGroup* #= proc (msgio: MsgIoServer, clientId: ClientId): Future[void] {.closure, gcsafe.}  
+  # EventTransportLeaveGroup*
   TransportBase* = object of RootObj
-    proto*: string
-    send*: TransportSend
+    proto*: string        ## the readable name of the transport
+    send*: ActionTransportSend  ## transports sends a msg
+    serve*: ActionTransportServe  ## transports sends a msg
+    clientConnected*: EventTransportClientConnected
+    clientDisconnected*: EventTransportClientDisconnected
     # hasClient*: -> bool
   MsgType* = enum
     TGROUP
@@ -32,8 +44,9 @@ type
     sender*: string
   Transports* = seq[TransportBase]
   MsgIoServer* = ref object
-    discard
     transports*: Transports
+    onClientConnected*: EventTransportClientConnected
+    onClientDisconnected*: EventTransportClientDisconnected
   ClientId* = int
   Client* = object 
     clientId: ClientId
