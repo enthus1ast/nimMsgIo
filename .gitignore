@@ -1,1 +1,10 @@
 nimcache
+clientJs
+client
+msgIoServer
+roomLogic
+testServer
+transport
+types
+wsioserver
+transports/transportWebSocket

@@ -6,7 +6,16 @@
 #    See the file "copying.txt", included in this
 #    distribution, for details about the copyright.
 #
+# import typesTransport
+import asyncdispatch
+# import typesMsgIo
+
 type
+  TransportSend* = proc (msgio: MsgIoServer, clientId: ClientId, event, data: string): Future[void] {.closure, gcsafe.}
+  TransportBase* = object of RootObj
+    proto*: string
+    send*: TransportSend
+    # hasClient*: -> bool
   MsgType* = enum
     TGROUP
     TCLIENT
@@ -21,9 +30,10 @@ type
   MsgToServer* = object of MsgBase
   MsgFromServer = object of MsgBase
     sender*: string
-
-
-type # Server
+  Transports* = seq[TransportBase]
+  MsgIoServer* = ref object
+    discard
+    transports*: Transports
   ClientId* = int
   Client* = object 
     clientId: ClientId

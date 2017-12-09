@@ -1,10 +1,8 @@
-import tables, asyncnet, typesMsgIo, asyncdispatch, asynchttpserver, websocket, future
-import msgIoServer
-import typesMsgIo
-import typesTransport
+import tables, asyncnet, asyncdispatch, asynchttpserver, websocket, future
+import ../msgIoServer
+import ../types
 
 type
-
   TransportWs* = object of TransportBase
     clients: ClientsWs
     httpServer: AsyncHttpServer
@@ -13,25 +11,15 @@ type
     namespace: string
   ClientsWs = TableRef[ClientId, AsyncSocket]
 
-# TransportSend* = proc (clientId: ClientId, event, data: string): Future[void]
-
-  
-  # discard
-
-# var sendWs: TransportSend = proc (clientId: ClientId, event, data: string): Future[void] = 
-#   discard
-
-proc newTransportWs*(namespace = "default", port: int = 9090, address = ""): TransportWs =  #  address = "", port: int
+proc newTransportWs*(namespace = "default", port: int = 9090, address = ""): TransportWs =
   result = TransportWs()
-  #result.send = (clientId: ClientId, event: string, data: string) => sendWs(clientId, event, data) #.TransportSend
-
   result.proto = "ws"
-  result.address = "" # address
-  result.port = port.Port #port.Port
+  result.address = address
+  result.port = port.Port
   result.httpServer = newAsyncHttpServer()
   result.namespace = namespace
   var base = result
-  proc sendWs(transport: TransportBase, clientId: ClientId, event, data: string): Future[void] = 
+  proc sendWs(msgio: MsgIoServer, clientId: ClientId, event, data: string): Future[void] = 
     echo base.proto
     echo "foo"
   result.send = sendWs
