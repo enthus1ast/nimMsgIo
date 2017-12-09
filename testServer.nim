@@ -11,14 +11,31 @@
 import client
 import asyncdispatch
 
-var onCon = proc (wsio: WebsocketIo, client: Client): Future[void] {.async.} = 
-  echo "Client connected, handled in callback:", client.clientId
 
-var onDisCon = proc (wsio: WebsocketIo, client: Client): Future[void] {.async.} = 
-  echo "Client DIS connected, handled in callback:", client.clientId
+# USER PART ------
+var myUsers = initTable[string, User]()
 
-var wsio = newWebsocketIo()
-wsio.onClientConnected = onCon 
-wsio.onClientDisconnected = onDisCon 
-asyncCheck wsio.serveWsIo()
+var onCon = proc (msgIo: MsgIo, clientId: ClientId): Future[void] {.async.} = 
+  echo "Client connected, handled in callback:", clientId
+  await msgIo.clients[clientId].send("msg foo baa")
+  await msgIo.broadcast("event", "msg") # to ALL connected clients on this server
+  await msgIo.rooms["lobby"].send("event", "msg")
+
+  # send(clientId)
+# var onDisCon = proc (wsio: WebsocketIo, client: Client): Future[void] {.async.} = 
+#   echo "Client DIS connected, handled in callback:", client.clientId
+
+# ^^^^^^
+
+
+## Von uns -----------------------------
+var wstransport = newWsTransport(namespace="default")
+var tcptransport= newTcpTransport(port=8989, interface="0.0.0.0")
+
+var msgio = newMsgIoServer()
+msgio.addTransport(wstransport)
+msgio.addTransport(tcptransport)
+msgio.onClientConnected = onCon 
+msgio.onClientDisconnected = onDisCon 
+asyncCheck msgio.serve() #serveWsIo()
 runForever()

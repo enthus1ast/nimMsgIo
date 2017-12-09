@@ -11,18 +11,19 @@ import tables, asyncnet#, asyncdispatch
 # , asynchttpserver, websocket
 import random, future, options
 import sets
+import typesMsgIo
 
 
 type # Both
   NameSpace* = string # "mandant" rooms with same name could exists on multiple NameSpaces
   RoomId* = string
-  
+    
 # type NetworkAbstraction* =
 #   send
 #   recv
 
 type # Server
-  ClientId* = int
+  # ClientId* = int
   # ClientIds* = seq[ClientId]
   # Client*[T] = object
   #   clientId*: ClientId
@@ -33,30 +34,23 @@ type # Server
   Room* = object 
     roomId*: RoomId
     clients*: Clients # Clients # all joined clients 
-    # custom*: T
   Rooms* = TableRef[RoomId, Room]
-  WebsocketIoLogic* = ref object
+  RoomLogic* = ref object
     namespace*: NameSpace # the namespace this server is responsible for
     clients*: Clients # all connected clients
     rooms*: Rooms # all created rooms.
 
 proc newClients*(): Clients =
-  # result = newTable[ClientId, Client]()
   result = initSet[ClientId]()
 
 proc newRooms*(): Rooms =
   result = newTable[RoomId, Room]()
   
-proc newWebsocketIoLogic*(namespace: NameSpace = "default"): WebsocketIoLogic =
-  result = WebsocketIoLogic()
+proc newRoomLogic*(namespace: NameSpace = "default"): RoomLogic =
+  result = RoomLogic()
   result.namespace = namespace
   result.clients = newClients()
   result.rooms = newRooms()
-  # result.httpServer = newAsyncHttpServer()
-  # result.onClientConnected = nil           ### TODO ?#Option[client.onClientConnected] # none #OnClientConnected]
-  # result.onClientDisconnected = nil
-  # result.onClientJoinRoom = nil
-  # result.onClientLeaveRoom = nil
 
 # proc newClient*(clientId: ClientId = -1): Client =
 #   result = Client()
@@ -68,30 +62,28 @@ proc newRoom*(roomId: RoomId): Room =
   result.roomId = roomId
   result.clients = newClients()
 
-proc joinRoom*(wsio: WebsocketIoLogic, clientId: ClientId, roomId: RoomId) =
+proc joinRoom*(roomLogic: RoomLogic, clientId: ClientId, roomId: RoomId) =
   ## let client join the given room
   ## if room does not exist create it.
-  if not wsio.rooms.hasKey(roomId):
-    wsio.rooms[roomId] = newRoom(roomId)
-    wsio.rooms[roomId].clients.incl(clientId)
-  # wsio.rooms[roomId].clients.add(client.clientId, client)
-  # wsio.rooms[roomId].clients.add(client.clientId, client)
+  if not roomLogic.rooms.hasKey(roomId):
+    roomLogic.rooms[roomId] = newRoom(roomId)
+    roomLogic.rooms[roomId].clients.incl(clientId)
 
-proc leaveRoom*(wsio: WebsocketIoLogic, clientId: ClientId, roomId: RoomId) = 
+proc leaveRoom*(roomLogic: RoomLogic, clientId: ClientId, roomId: RoomId) = 
   ## let client part from the given room
   ## if room is empty afterwards remove it
-  if not wsio.rooms.hasKey(roomId):
+  if not roomLogic.rooms.hasKey(roomId):
     return
-  wsio.rooms[roomId].clients.excl(clientId)
-  if wsio.rooms[roomId].clients.len == 0:
+  roomLogic.rooms[roomId].clients.excl(clientId)
+  if roomLogic.rooms[roomId].clients.len == 0:
     # if room empty remove close room
-    wsio.rooms.del(roomId)
+    roomLogic.rooms.del(roomId)
 
-proc leaveAllRooms*(wsio: WebsocketIoLogic, clientId: ClientId) = 
+proc leaveAllRooms*(roomLogic: RoomLogic, clientId: ClientId) = 
     ## clients leaves all rooms it is connected to.
-    for room in wsio.rooms.values:
+    for room in roomLogic.rooms.values:
       if room.clients.contains(clientId):
-        wsio.leaveRoom(clientId, room.roomId) # room.del(client.clientId)
+        roomLogic.leaveRoom(clientId, room.roomId) # room.del(client.clientId)
   
 # proc sendTo(client: Client) # to spezific client
 # proc sendTo(room: Room)   # ro spezific room
@@ -99,54 +91,54 @@ proc leaveAllRooms*(wsio: WebsocketIoLogic, clientId: ClientId) =
 # proc disconnect(client: Client) # close connection to given client
 # proc disconnect(room: Room)   # close connection to all clients in the this room
 # proc dumpTo(client: Client) # dumps every frame to the given client / monitor entire stream
-# iterator clients(wsio: WebsocketIoLogic, room: Room): Client =   
+# iterator clients(roomLogic: RoomLogic, room: Room): Client =   
 #   ## iterates all clients in a room
 #   discard
-# iterator clients(wsio: WebsocketIoLogic): Client = 
+# iterator clients(roomLogic: RoomLogic): Client = 
 #   ## iterates over all clients connected to this server
 #   discard
 
-proc clientIdUsed*(wsio: WebsocketIoLogic, clientId: ClientId): bool =
-  return wsio.clients.contains(clientId)
+proc clientIdUsed*(roomLogic: RoomLogic, clientId: ClientId): bool =
+  return roomLogic.clients.contains(clientId)
 
-proc genClientId*(wsio: WebsocketIoLogic): ClientId =
+proc genClientId*(roomLogic: RoomLogic): ClientId =
   ## generates an unsed client id
   result = -1
   while true:
     result = random( high(int32) )
-    if wsio.clientIdUsed(result): continue
+    if roomLogic.clientIdUsed(result): continue
     else: break
 
-proc connects*(wsio: WebsocketIoLogic, clientId: ClientId): bool = 
+proc connects*(roomLogic: RoomLogic, clientId: ClientId): bool = 
   ## connects a client to the underlying logic
-  if wsio.clientIdUsed(clientId): return false
-  wsio.clients.incl(clientId)
+  if roomLogic.clientIdUsed(clientId): return false
+  roomLogic.clients.incl(clientId)
   return true
 
-proc disconnects*(wsio: WebsocketIoLogic, clientId: ClientId) =
+proc disconnects*(roomLogic: RoomLogic, clientId: ClientId) =
   ## disconnects a client from the underlying logic
-  if wsio.clientIdUsed(clientId):
-    wsio.leaveAllRooms(clientId)
-    wsio.clients.excl(clientId)
+  if roomLogic.clientIdUsed(clientId):
+    roomLogic.leaveAllRooms(clientId)
+    roomLogic.clients.excl(clientId)
 
 when isMainModule:
   randomize()
   block: # basic tests
-    var wsio = newWebsocketIoLogic()
-    # var tstClient = newClient(wsio.genClientId())
-    var tstId = wsio.genClientId()
+    var roomLogic = newRoomLogic()
+    # var tstClient = newClient(roomLogic.genClientId())
+    var tstId = roomLogic.genClientId()
     assert tstId != -1
-    wsio.joinRoom(tstId, "lobby")
-    assert wsio.rooms.len() == 1
-    assert wsio.rooms["lobby"].clients.len() == 1
+    roomLogic.joinRoom(tstId, "lobby")
+    assert roomLogic.rooms.len() == 1
+    assert roomLogic.rooms["lobby"].clients.len() == 1
     
-    wsio.leaveRoom(tstId, "lobby")
-    wsio.leaveRoom(tstId, "lobby") # leave again
-    assert wsio.rooms.len() == 0
+    roomLogic.leaveRoom(tstId, "lobby")
+    roomLogic.leaveRoom(tstId, "lobby") # leave again
+    assert roomLogic.rooms.len() == 0
 
-    wsio.joinRoom(tstId, "tst")
-    wsio.joinRoom(tstId, "tst2")
-    assert wsio.rooms.len() == 2
-    wsio.leaveAllRooms(tstId)
-    assert wsio.rooms.len() == 0
+    roomLogic.joinRoom(tstId, "tst")
+    roomLogic.joinRoom(tstId, "tst2")
+    assert roomLogic.rooms.len() == 2
+    roomLogic.leaveAllRooms(tstId)
+    assert roomLogic.rooms.len() == 0
 
