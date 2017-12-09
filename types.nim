@@ -32,7 +32,7 @@ type
 
   # EventTransportJoinGroup* #= proc (msgio: MsgIoServer, clientId: ClientId): Future[void] {.closure, gcsafe.}  
   # EventTransportLeaveGroup*
-  TransportBase* = object of RootObj
+  TransportBase* = ref object of RootObj
     proto*: string        ## the readable name of the transport
     send*: ActionTransportSend  ## transports sends a msg
     serve*: ActionTransportServe  ## transports sends a msg

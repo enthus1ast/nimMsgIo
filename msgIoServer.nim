@@ -46,12 +46,12 @@ proc onTransportClientConnecting*(msgio: MsgIoServer, transport: TransportBase):
     return
   
   clientId = result.get()
-  echo "Transport: ", repr transport
+  # echo "Transport: ", repr transport
   msgio.clients.add(clientId, transport)
     # if clientIdOpt.isSome: clientId = clientIdOpt.get()
-  echo repr msgio.onClientConnected
+  # echo repr msgio.onClientConnected
   # echo repr msgio
-  echo repr clientId
+  # echo repr clientId
   if msgio.onClientConnected.isNil: 
     echo "msgio.onClientConnected.isNil"
     return
@@ -97,12 +97,12 @@ when isMainModule:
     echo "in user supplied on onClientConnected"
     # await sleepAsync(1000)
     echo msgio.clients.hasKey(clientId)
-    echo repr msgio.clients[clientId]
+    # echo repr msgio.clients[clientId]
     await msgio.clients[clientId].send(msgio, clientId, "event", "data")
 
   asyncCheck msgio.serve()
   assert msgio.transports.len == 1
-  echo msgio.transports
+  # echo msgio.transports
   # discard msgio.transports[0].send( 123.ClientId, "event", "data")
 
   runForever()

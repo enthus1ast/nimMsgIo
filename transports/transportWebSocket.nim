@@ -3,7 +3,7 @@ import ../msgIoServer
 import ../types
 
 type
-  TransportWs* = object of TransportBase
+  TransportWs* = ref object of TransportBase
     clients: ClientsWs
     httpServer: AsyncHttpServer
     address: string
@@ -51,9 +51,10 @@ proc serveWebSocket(transport: TransportWs): Future[void] {.async.} =
   asyncCheck transport.httpServer.serve(transport.port, (req: Request) => cb(req, transport) )  
   echo "websocketTransport listens on: ", $transport.port.int
 
-proc sendWebSocket(transport: TransportWs, msgio: MsgIoServer, clientId: ClientId, event, data: string): Future[void] = 
+proc sendWebSocket(transport: TransportWs, msgio: MsgIoServer, clientId: ClientId, event, data: string): Future[void] {.async.}= 
   echo transport.proto
   echo "foo"
+  await transport.clients[clientId].sendText(data, false)
 
 
 proc newTransportWs*(msgio: MsgIoServer, namespace = "default", port: int = 9090, address = ""): TransportWs =
@@ -66,9 +67,10 @@ proc newTransportWs*(msgio: MsgIoServer, namespace = "default", port: int = 9090
   result.namespace = namespace
   result.clients = newTable[ClientId, AsyncSocket]()
   var transport = result
-  result.send = proc(msgio: MsgIoServer, clientId: ClientId, event, data: string): Future[void] = 
-    sendWebSocket(transport, msgio, clientId, event, data)
-  result.serve = proc (): Future[void] = serveWebSocket(transport)
+  result.send = proc(msgio: MsgIoServer, clientId: ClientId, event, data: string): Future[void] {.async.} = 
+    await sendWebSocket(transport, msgio, clientId, event, data)
+  result.serve = proc (): Future[void] {.async.} = 
+    await serveWebSocket(transport)
   # var foo = proc (): Future[void] = (): Future[void] => (serveWebSocket(result))
   # result.serve =  proc (): Future[void] -> serveWebSocket(result)  # Future[void] {.closure, gcsafe.} =
     # return serveWebSocket(result)
