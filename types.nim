@@ -7,9 +7,12 @@
 #    distribution, for details about the copyright.
 #
 # import typesTransport
-import asyncdispatch
+import asyncdispatch, options
 # import typesMsgIo
-
+import typesMsg
+import roomLogic
+import typesShared
+export typesShared
 type
 
   # Transport does something:
@@ -17,8 +20,13 @@ type
   ActionTransportServe* = proc (): Future[void] {.closure, gcsafe.}
   
   # Middleware gets informed:
-  EventTransportClientConnected* = proc (msgio: MsgIoServer, clientId: ClientId): Future[bool] {.closure, gcsafe.}  
+  EventTransportClientConnected* = proc (msgio: MsgIoServer): Future[Option[ClientId]] {.closure, gcsafe.}  
   EventTransportClientDisconnected* = proc (msgio: MsgIoServer, clientId: ClientId): Future[void] {.closure, gcsafe.}  
+  
+  # Library user gets informed in his code:
+  EventClientConnected* = proc (msgio: MsgIoServer, clientId: ClientId): Future[Option[ClientId]] {.closure, gcsafe.}  
+  EventClientDisconnected* = EventTransportClientDisconnected
+
   # EventTransportJoinGroup* #= proc (msgio: MsgIoServer, clientId: ClientId): Future[void] {.closure, gcsafe.}  
   # EventTransportLeaveGroup*
   TransportBase* = object of RootObj
@@ -28,29 +36,31 @@ type
     clientConnected*: EventTransportClientConnected
     clientDisconnected*: EventTransportClientDisconnected
     # hasClient*: -> bool
-  MsgType* = enum
-    TGROUP
-    TCLIENT
-    TSERVER
-  MsgBase = object of RootObj
-    target*: string
-    sourceType: MsgType
-    targetType: MsgType
-    event*: string
-    payload*: string
-    # msgId*: int
   MsgToServer* = object of MsgBase
   MsgFromServer = object of MsgBase
     sender*: string
   Transports* = seq[TransportBase]
   MsgIoServer* = ref object
     transports*: Transports
-    onClientConnected*: EventTransportClientConnected
-    onClientDisconnected*: EventTransportClientDisconnected
-  ClientId* = int
+    roomLogic*: RoomLogic
+
+    ## Transport Callbacks
+    onTransportClientConnected*: EventTransportClientConnected
+    onTransportClientDisconnected*: EventTransportClientDisconnected
+
+    ## User Callbacks
+    onClientConnected*: EventClientConnected
+    onClientDisconnected*: EventClientDisconnected
+
   Client* = object 
     clientId: ClientId
     transportProtocol: string
+
+  SerializerSerialize = proc (msg: MsgBase): string
+  SerializerUnSerialize = proc (msgstr: string): MsgBase
+  SerializerBase* = object of RootObj
+    serialize*: SerializerSerialize
+    unserialize*: SerializerUnSerialize
 
 proc newClient*(clientId: ClientId = -1, transportProtocol: string): Client =
   result = Client()

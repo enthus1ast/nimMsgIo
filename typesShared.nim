@@ -1,0 +1,2 @@
+type
+  ClientId* = int

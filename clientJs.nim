@@ -2,7 +2,10 @@
 #   echo "this module is for the js backend!"
 #   quit()
 # import tables
-import controlMsgs
+# import controlMsgs
+import typesMsg
+# import types
+
 type
 
   MessageEvent* {.importc.} = ref object
@@ -56,7 +59,7 @@ proc on*(wic: WebsocketIoClient, event: string, cb: proc () ) =
   # wic.callbacks.add()
 
 when isMainModule:
-  var wic = newWebsocketIoClient("ws://127.0.0.1:8081", "default")
+  var wic = newWebsocketIoClient("ws://127.0.0.1:9090", "default")
   wic.ws.onopen = proc (e: MessageEvent) = 
     # ws.send("foo")
     wic.joinRoom("lobby")

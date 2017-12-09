@@ -11,34 +11,11 @@ import tables, asyncnet#, asyncdispatch
 # , asynchttpserver, websocket
 import random, future, options
 import sets
-import typesMsgIo
+import typesRoomLogic
+export typesRoomLogic
+# import types
+# import typesMsgIo
 
-
-type # Both
-  NameSpace* = string # "mandant" rooms with same name could exists on multiple NameSpaces
-  RoomId* = string
-    
-# type NetworkAbstraction* =
-#   send
-#   recv
-
-type # Server
-  # ClientId* = int
-  # ClientIds* = seq[ClientId]
-  # Client*[T] = object
-  #   clientId*: ClientId
-  #   socket* : T
-    # websocket*: AsyncSocket
-    # custom*: T
-  Clients* =  HashSet[ClientId] #TableRef[ClientId, T]
-  Room* = object 
-    roomId*: RoomId
-    clients*: Clients # Clients # all joined clients 
-  Rooms* = TableRef[RoomId, Room]
-  RoomLogic* = ref object
-    namespace*: NameSpace # the namespace this server is responsible for
-    clients*: Clients # all connected clients
-    rooms*: Rooms # all created rooms.
 
 proc newClients*(): Clients =
   result = initSet[ClientId]()

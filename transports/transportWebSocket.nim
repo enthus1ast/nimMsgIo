@@ -1,4 +1,4 @@
-import tables, asyncnet, asyncdispatch, asynchttpserver, websocket, future
+import tables, asyncnet, asyncdispatch, asynchttpserver, websocket, future, options
 import ../msgIoServer
 import ../types
 
@@ -9,32 +9,65 @@ type
     address: string
     port: Port
     namespace: string
+    msgio: MsgIoServer # parent
+    # httpCallback 
   ClientsWs = TableRef[ClientId, AsyncSocket]
 
 
-proc newTransportWs*(namespace = "default", port: int = 9090, address = ""): TransportWs =
+proc handleWebsocket(transport: TransportWs, req: Request): Future[void] {.async.} =
+  discard
+  #  var clientIdOpt = await transport.msgio.onClientConnected(transport.msgio, 0)
+  # if transport.msgio.onTransportClientConnected.isNil: 
+  #   echo "onTransportClientConnected is nil "
+  var clientIdOpt = await transport.msgio.onTransportClientConnected(transport.msgio)
+  if clientIdOpt.isNone: 
+    echo "User gave the transport no ClientId, so we disconnect the fresh user..."
+    req.client.close()
+    return
+
+  
+
+
+#  if not connectionAllowed: return
+ 
+
+
+proc cb(req: Request, transport: TransportWs): Future[void] {.async.} =
+  let (isWebsocket, websocketError) = await(verifyWebsocketRequest(req, transport.namespace))
+  if isWebsocket: 
+    echo "is ws"
+    await handleWebsocket(transport,req)
+
+  else: 
+    echo "no http!"
+
+proc serveWebSocket(transport: TransportWs): Future[void] {.async.} = 
+  asyncCheck transport.httpServer.serve(transport.port, (req: Request) => cb(req, transport) )  
+  echo "websocketTransport listens on: ", $transport.port.int
+
+proc sendWebSocket(transport: TransportWs, msgio: MsgIoServer, clientId: ClientId, event, data: string): Future[void] = 
+  echo transport.proto
+  echo "foo"
+
+
+proc newTransportWs*(msgio: MsgIoServer, namespace = "default", port: int = 9090, address = ""): TransportWs =
   result = TransportWs()
+  result.msgio = msgio # ref to base
   result.proto = "ws"
   result.address = address
   result.port = port.Port
   result.httpServer = newAsyncHttpServer()
   result.namespace = namespace
-  var base = result
-  proc sendWebSocket(msgio: MsgIoServer, clientId: ClientId, event, data: string): Future[void] = 
-    echo base.proto
-    echo "foo"
-  result.send = sendWebSocket
-  proc cb(req: Request, transport: TransportWs): Future[void] {.async.} =
-    let (isWebsocket, websocketError) = await(verifyWebsocketRequest(req, transport.namespace))
-    if isWebsocket: 
-      # await handleWebsocket(req, wsio)
-      echo "is ws"
-    else: 
-      echo "no http!"
-  proc serveWebSocket(): Future[void] {.async.} = 
-    asyncCheck base.httpServer.serve(base.port, (req: Request) => cb(req, base) )  
-    echo "websocketTransport listens on: ", $base.port.int
-  result.serve = serveWebSocket
+  var transport = result
+  result.send = proc(msgio: MsgIoServer, clientId: ClientId, event, data: string): Future[void] = 
+    sendWebSocket(transport, msgio, clientId, event, data)
+  result.serve = proc (): Future[void] = serveWebSocket(transport)
+  # var foo = proc (): Future[void] = (): Future[void] => (serveWebSocket(result))
+  # result.serve =  proc (): Future[void] -> serveWebSocket(result)  # Future[void] {.closure, gcsafe.} =
+    # return serveWebSocket(result)
+
+  # result.serve = proc (): Future[void] {.closure, gcsafe.} =
+  #   return serveWebSocket(result)
   # result.serve = serveWebSocket
   # result.httpCallback 
 
@@ -62,6 +95,7 @@ proc acceptConnection(): Future[Client] =
   discard
 
 when isMainModule:
-  var transportWs = newTransportWs(port=9000)
+  var msgio = newMsgIoServer()
+  var transportWs = msgio.newTransportWs(port=9000)
   asyncCheck transportWs.serve()
   runForever()
