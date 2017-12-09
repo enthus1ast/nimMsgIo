@@ -14,7 +14,7 @@ type
   ClientsWs = TableRef[ClientId, AsyncSocket]
 
 # TransportSend* = proc (clientId: ClientId, event, data: string): Future[void]
-proc sendWs(clientId: ClientId, event, data: string): Future[void] = 
+proc sendWs(transport: TransportBase, clientId: ClientId, event, data: string): Future[void] = 
   echo "foo"
   discard
 

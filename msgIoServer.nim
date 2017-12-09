@@ -31,10 +31,15 @@ when isMainModule:
   addTransport(msgio, transportWs)
   assert msgio.transports.len == 1
   echo msgio.transports
-  var ts = msgio.transports[0].send
-  echo repr ts
+
+  discard msgio.transports[0].send(msgio.transports[0],  123.ClientId, "event", "data")
+  # var ts = msgio.transports[0].send #(123.ClientId, "event", "data")
+  # if ts.isNil: echo "ts is nil"
+  # discard ts(msgio.transports[0],  123.ClientId, "event", "data")
+  # var ts = msgio.transports[0]
+  # echo repr ts
   # ts[TransportSend]()
-  waitFor ts(1234, "event", "data")
+  # waitFor ts(1234, "event", "data")
   # discard await  
   # assert msg
   # waitFor msgio.transports[0].send()
