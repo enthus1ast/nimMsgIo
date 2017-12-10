@@ -15,7 +15,7 @@ type
     onmessage*: proc (e: MessageEvent)
     onopen*: proc (e: MessageEvent)
 
-  WebsocketIoClient = object
+  MsgIoClient = object
     ws: WebSocket
 
 
@@ -24,42 +24,42 @@ proc newWebSocket(url, key: cstring): WebSocket
 
 proc send(w: WebSocket; data: cstring) {.importcpp.}
 
-proc newWebsocketIoClient*(url, namespace: string): WebsocketIoClient = 
+proc newMsgIoClient*(url, namespace: string): MsgIoClient = 
   ## The websocketIo Client.
-  result = WebsocketIoClient()
+  result = MsgIoClient()
   result.ws = newWebSocket(url, namespace)
   # result.ws.onopen = 
 
-proc joinRoom*(wic: WebsocketIoClient, room: string) =
+proc joinRoom*(wic: MsgIoClient, room: string) =
   ## tells the server we want to join a room
   ## if sucessfull onJoinedRoom(room, success) is called
   discard
 
-proc leaveRoom*(wic: WebsocketIoClient, room: string) = 
+proc leaveRoom*(wic: MsgIoClient, room: string) = 
   ## tells the server we want to leave a room
   ## if sucessfull onLeaveRoom(room, success) is called
   discard
 
-proc sendToRoom*(wic: WebsocketIoClient, room: string, event: string, data: string) =
+proc sendToRoom*(wic: MsgIoClient, room: string, event: string, data: string) =
   ## sends data to the given room. The client must have joined the room before.
   ## if the server accepts, then the message is relayed to all clients in the room
   discard
 
-proc sendToUser*(wic: WebsocketIoClient, userId: string, event: string, data: string ) =
+proc sendToUser*(wic: MsgIoClient, userId: string, event: string, data: string ) =
   ## sends data to the given user. 
   ## If server accepts, data is relayed to the given user
   discard
 
-proc send*(wic: WebsocketIoClient, event: string, data: string ) =
+proc send*(wic: MsgIoClient, event: string, data: string ) =
   ## sends data withouth a target. Server has to distribute or handle this call 
   ## in its onMsg callback. 
 
-proc on*(wic: WebsocketIoClient, event: string, cb: proc () ) = 
+proc on*(wic: MsgIoClient, event: string, cb: proc () ) = 
   discard
   # wic.callbacks.add()
 
 when isMainModule:
-  var wic = newWebsocketIoClient("ws://127.0.0.1:9090", "default")
+  var wic = newMsgIoClient("ws://127.0.0.1:9090", "default")
   wic.ws.onopen = proc (e: MessageEvent) = 
     # ws.send("foo")
     wic.joinRoom("lobby")
