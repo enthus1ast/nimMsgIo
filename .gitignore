@@ -8,3 +8,8 @@ transport
 types
 wsioserver
 transports/transportWebSocket
+serializer/serializerJson
+testi
+testiWs
+typesMsg
+typesShared

@@ -9,8 +9,9 @@
 # import typesTransport
 import asyncdispatch, options
 # import typesMsgIo
-import typesMsg
 import roomLogic
+import typesMsg
+export typesMsg
 import typesShared
 export typesShared
 import tables
@@ -22,8 +23,9 @@ type
   ActionTransportServe* = proc (): Future[void] {.closure, gcsafe.}
   
   # Middleware gets informed:
-  EventTransportClientConnecting* = proc (msgio: MsgIoServer, transport: TransportBase): Future[Option[ClientId]] {.closure, gcsafe.}  
-  EventTransportClientDisconnected* = proc (msgio: MsgIoServer, clientId: ClientId): Future[void] {.closure, gcsafe.}  
+  EventTransportClientConnecting* = proc (msgio: MsgIoServer): Future[Option[ClientId]] {.closure, gcsafe.}  
+  EventTransportClientConnected* = proc (msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[void] {.closure, gcsafe.}  
+  EventTransportClientDisconnected* = proc (msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[void] {.closure, gcsafe.}  
   
   # Library user gets informed in his code:
   EventClientConnecting* = proc (msgio: MsgIoServer, clientId: ClientId): Future[Option[ClientId]] {.closure, gcsafe.}  
@@ -50,6 +52,7 @@ type
 
     ## Transport Callbacks
     onTransportClientConnecting*: EventTransportClientConnecting
+    onTransportClientConnected*: EventTransportClientConnected
     onTransportClientDisconnected*: EventTransportClientDisconnected
 
     ## User Callbacks
