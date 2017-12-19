@@ -6,16 +6,12 @@
 #    See the file "copying.txt", included in this
 #    distribution, for details about the copyright.
 #
-import tables, asyncnet#, asyncdispatch
+import tables, asyncnet
 
-# , asynchttpserver, websocket
 import random, future, options
 import sets
 import typesRoomLogic
 export typesRoomLogic
-# import types
-# import typesMsgIo
-
 
 proc newClients*(): Clients =
   result = initSet[ClientId]()
@@ -29,11 +25,6 @@ proc newRoomLogic*(namespace: NameSpace = "default"): RoomLogic =
   result.namespace = namespace
   result.clients = newClients()
   result.rooms = newRooms()
-
-# proc newClient*(clientId: ClientId = -1): Client =
-#   result = Client()
-#   result.clientId = clientId
-#   # result.
 
 proc newRoom*(roomId: RoomId): Room = 
   result = Room()
@@ -79,19 +70,6 @@ proc getParticipatingClients*(roomLogic: RoomLogic, clientId: ClientId): HashSet
         if clientId != roomParticipant: # filter out ourselv
           result.incl roomParticipant
 
-# proc sendTo(client: Client) # to spezific client
-# proc sendTo(room: Room)   # ro spezific room
-# proc broadcast() = discard    # to all connected nodes
-# proc disconnect(client: Client) # close connection to given client
-# proc disconnect(room: Room)   # close connection to all clients in the this room
-# proc dumpTo(client: Client) # dumps every frame to the given client / monitor entire stream
-# iterator clients(roomLogic: RoomLogic, room: Room): Client =   
-#   ## iterates all clients in a room
-#   discard
-# iterator clients(roomLogic: RoomLogic): Client = 
-#   ## iterates over all clients connected to this server
-#   discard
-
 proc clientIdUsed*(roomLogic: RoomLogic, clientId: ClientId): bool =
   return roomLogic.clients.contains(clientId)
 
@@ -117,6 +95,12 @@ proc disconnects*(roomLogic: RoomLogic, clientId: ClientId) =
 
 when isMainModule:
   randomize()
+  var dummyRoomLogic = newRoomLogic()
+  var tstId1 = dummyRoomLogic.genClientId()
+  var tstId2 = dummyRoomLogic.genClientId()
+  var tstId3 = dummyRoomLogic.genClientId()
+  assert tstId1 != tstId2 
+
   block: # basic tests
     var roomLogic = newRoomLogic()
     # var tstClient = newClient(roomLogic.genClientId())
@@ -139,9 +123,14 @@ when isMainModule:
 
   block:
     var roomLogic = newRoomLogic()
-    var tstId1 = roomLogic.genClientId()
-    var tstId2 = roomLogic.genClientId()
-    assert tstId1 != tstId2
+    assert true == roomLogic.connects tstId1
+    roomLogic.joinRoom(tstId1, "lobby")
+    assert roomLogic.rooms.hasKey("lobby")
+    roomLogic.disconnects(tstId1)
+    assert false == roomLogic.rooms.hasKey("lobby")
+
+  block:
+    var roomLogic = newRoomLogic()
     assert true == roomLogic.connects tstId1
     assert true == roomLogic.connects tstId2
     assert true == roomLogic.clients.contains(tstId1)
@@ -154,3 +143,6 @@ when isMainModule:
 
     let peers = roomLogic.getParticipatingClients(tstId1)
     assert true == peers.contains(tstId2)
+
+    roomLogic.leaveRoom(tstId2, "lobby")
+    assert roomLogic.getParticipatingClients(tstId1).len == 0
