@@ -24,6 +24,7 @@ proc newRooms*(): Rooms =
   result = newTable[RoomId, Room]()
   
 proc newRoomLogic*(namespace: NameSpace = "default"): RoomLogic =
+  randomize()
   result = RoomLogic()
   result.namespace = namespace
   result.clients = newClients()
@@ -42,13 +43,19 @@ proc newRoom*(roomId: RoomId): Room =
 proc joinRoom*(roomLogic: RoomLogic, clientId: ClientId, roomId: RoomId) =
   ## let client join the given room
   ## if room does not exist create it.
+  if not roomLogic.clients.contains clientId:
+    echo "connect client first!:", clientId
+    return
   if not roomLogic.rooms.hasKey(roomId):
     roomLogic.rooms[roomId] = newRoom(roomId)
-    roomLogic.rooms[roomId].clients.incl(clientId)
+  roomLogic.rooms[roomId].clients.incl(clientId)
 
 proc leaveRoom*(roomLogic: RoomLogic, clientId: ClientId, roomId: RoomId) = 
   ## let client part from the given room
   ## if room is empty afterwards remove it
+  if not roomLogic.clients.contains clientId:
+    echo "connect client first!:", clientId
+    return  
   if not roomLogic.rooms.hasKey(roomId):
     return
   roomLogic.rooms[roomId].clients.excl(clientId)
@@ -62,6 +69,16 @@ proc leaveAllRooms*(roomLogic: RoomLogic, clientId: ClientId) =
       if room.clients.contains(clientId):
         roomLogic.leaveRoom(clientId, room.roomId) # room.del(client.clientId)
   
+proc getParticipatingClients*(roomLogic: RoomLogic, clientId: ClientId): HashSet[ClientId] =
+  ## returns a set with all clientId's the given clientId is in contact with
+  result = initSet[ClientId]()
+  for room in roomLogic.rooms.values:
+    echo room
+    if room.clients.contains clientId:
+      for roomParticipant in room.clients:
+        if clientId != roomParticipant: # filter out ourselv
+          result.incl roomParticipant
+
 # proc sendTo(client: Client) # to spezific client
 # proc sendTo(room: Room)   # ro spezific room
 # proc broadcast() = discard    # to all connected nodes
@@ -105,6 +122,7 @@ when isMainModule:
     # var tstClient = newClient(roomLogic.genClientId())
     var tstId = roomLogic.genClientId()
     assert tstId != -1
+    assert true == roomLogic.connects(tstId)
     roomLogic.joinRoom(tstId, "lobby")
     assert roomLogic.rooms.len() == 1
     assert roomLogic.rooms["lobby"].clients.len() == 1
@@ -119,3 +137,20 @@ when isMainModule:
     roomLogic.leaveAllRooms(tstId)
     assert roomLogic.rooms.len() == 0
 
+  block:
+    var roomLogic = newRoomLogic()
+    var tstId1 = roomLogic.genClientId()
+    var tstId2 = roomLogic.genClientId()
+    assert tstId1 != tstId2
+    assert true == roomLogic.connects tstId1
+    assert true == roomLogic.connects tstId2
+    assert true == roomLogic.clients.contains(tstId1)
+    assert true == roomLogic.clients.contains(tstId2)
+    
+    roomLogic.joinRoom(tstId1, "lobby")
+    roomLogic.joinRoom(tstId2, "lobby")
+    assert true == roomLogic.rooms["lobby"].clients.contains(tstId1)
+    assert true == roomLogic.rooms["lobby"].clients.contains(tstId2)
+
+    let peers = roomLogic.getParticipatingClients(tstId1)
+    assert true == peers.contains(tstId2)

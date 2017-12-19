@@ -59,7 +59,7 @@ proc on*(wic: MsgIoClient, event: string, cb: proc () ) =
   # wic.callbacks.add()
 
 when isMainModule:
-  var wic = newMsgIoClient("ws://127.0.0.1:9090", "default")
+  var wic = newMsgIoClient("ws://127.0.0.1:9000", "default")
   wic.ws.onopen = proc (e: MessageEvent) = 
     # ws.send("foo")
     wic.joinRoom("lobby")

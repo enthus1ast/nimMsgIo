@@ -21,6 +21,8 @@ type
   # Transport does something:
   ActionTransportSend* = proc (msgio: MsgIoServer, clientId: ClientId, event, data: string): Future[void] {.closure, gcsafe.}
   ActionTransportServe* = proc (): Future[void] {.closure, gcsafe.}
+  ActionTransportPing* = proc (clientId: ClientId): Future[bool] {.closure, gcsafe.}
+  ActionTransportDisconnects* = proc (clientId: ClientId): Future[void] {.closure, gcsafe.}
   
   # Middleware gets informed:
   EventTransportClientConnecting* = proc (msgio: MsgIoServer): Future[Option[ClientId]] {.closure, gcsafe.}  
@@ -38,6 +40,8 @@ type
     proto*: string        ## the readable name of the transport
     send*: ActionTransportSend  ## transports sends a msg
     serve*: ActionTransportServe  ## transports sends a msg
+    ping*: ActionTransportPing ## transport pings a client
+    disconnects*: ActionTransportDisconnects ## transport disconnects a client
     clientConnecting*: EventTransportClientConnecting
     clientDisconnected*: EventTransportClientDisconnected
     # hasClient*: -> bool

@@ -20,7 +20,7 @@ proc onClientConnecting(transport: TransportWs, req: Request): Future[void] {.as
     clientIdOpt = await transport.msgio.onTransportClientConnecting(transport.msgio)
     clientId: ClientId
   if clientIdOpt.isNone: 
-    echo "User gave the transport no ClientId, so we disconnect the fresh user..."
+    echo "ServerProgrammer gave the transport no ClientId, so we disconnect the fresh user..."
     req.client.close()
     return
   clientId = clientIdOpt.get()
@@ -42,7 +42,7 @@ proc serveWebSocket(transport: TransportWs): Future[void] {.async.} =
 proc sendWebSocket(transport: TransportWs, msgio: MsgIoServer, clientId: ClientId, event, data: string): Future[void] {.async.}= 
   await transport.clients[clientId].sendText(data, false)
 
-proc newTransportWs*(msgio: MsgIoServer, namespace = "default", port: int = 9090, address = ""): TransportWs =
+proc newTransportWs*(msgio: MsgIoServer, namespace = "default", port: int = 9000, address = ""): TransportWs =
   result = TransportWs()
   result.msgio = msgio
   result.proto = "ws"

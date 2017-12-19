@@ -43,7 +43,10 @@ proc onTransportClientConnecting*(msgio: MsgIoServer): Future[Option[ClientId]] 
 
 proc onTransportClientConnected(msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[void] {.async.} =
   msgio.clients.add(clientId, transport)
-  await msgio.onClientConnected(msgio, clientId)
+  if msgio.onClientConnected.isNil:
+    echo "server onClientConnected is nil"
+  else:
+    await msgio.onClientConnected(msgio, clientId)
 
 proc newMsgIoServer*(): MsgIoServer = 
   ## The main msg io server
@@ -55,6 +58,14 @@ proc newMsgIoServer*(): MsgIoServer =
   result.onTransportClientConnecting = onTransportClientConnecting # proc (msgio: MsgIoServer): Future[Option[ClientId]] = onTransportClientConnecting(msgio)
   result.onTransportClientConnected = onTransportClientConnected # proc (msgio: MsgIoServer): Future[Option[ClientId]] = onTransportClientConnecting(msgio)
 
+proc disconnects*(msgio: MsgIoServer, clientId: ClientId): Future[void] {.async.} = 
+    ## TODO WHERE TO INFORM ALL OTHER PARTICIPATING CLIENTS ABOUT THIS DISCONNECT?
+    ## disconnects a client from the msgIoServer.
+    ## client leaves all rooms
+    msgio.roomLogic.disconnects(clientId)
+    
+    await msgio.clients[clientId].disconnects(clientId)
+
 proc serve*(msgio: MsgIoServer): Future[void] {.async.} =
   for transport in msgio.transports:
     echo transport.proto, " transport loaded"
@@ -62,10 +73,13 @@ proc serve*(msgio: MsgIoServer): Future[void] {.async.} =
 
 when isMainModule:
   import transports/transportWebSocket
+  import transports/transportTcp
   var 
     msgio = newMsgIoServer()
-    transportWs = msgio.newTransportWs()
-  msgio.addTransport(transportWs)
+    transWs = msgio.newTransportWs()
+    transTcp = msgio.newTransportTcp()
+  msgio.addTransport(transWs)
+  msgio.addTransport(transTcp)
   msgio.onClientConnecting = proc (msgio: MsgIoServer, clientId: ClientId): Future[Option[ClientID]] {.async.} = #{.closure, gcsafe.} =
     echo "CLIENT CONNECTING IN USER SERVER"
     return some clientId
@@ -75,5 +89,20 @@ when isMainModule:
     await msgio.clients[clientId].send(msgio, clientId, "event", "hat funktioniert, gä? : )")
     await msgio.clients[clientId].send(msgio, clientId, "event", "ja! :)")
   asyncCheck msgio.serve()
-  assert msgio.transports.len == 1
+  assert msgio.transports.len == 2
   runForever()
+
+proc pingClients(msgio: MsgIoServer): Future[void] {.async.} =
+  ## periodically pings clients
+  ## to remove disconnected or very slow clients
+  ## this should be completely abstracted from the msgIo user!
+  while true:
+    echo "pinging clients"
+    for clientId, transport in msgio.clients:
+      let result = await transport.ping(clientId)
+      if result == false:
+        # client was unable to fullfill the transports ping
+        await msgio.disconnects(clientId)
+      else:
+        echo "ping:", result, " " ,clientId 
+      
