@@ -46,6 +46,7 @@ proc onClientConnecting(transport: TransportWs, req: Request): Future[void] {.as
           echo getCurrentExceptionMsg()
           echo "could not unserialize message:", f.data
           msgOpt = none MsgBase
+
         
         # await transport.msgio.onTransportMsg(transport.msgio, clientId, even)
       # if f.opcode == Opcode.Text:
@@ -63,6 +64,12 @@ proc onClientConnecting(transport: TransportWs, req: Request): Future[void] {.as
       await transport.msgio.onClientMsg(transport.msgio, msgOpt.get(), transport)
     else:
       echo "the msg could not encoded or something else..."
+
+  ## Client is gone, delete it from this transport
+  transport.clients.del(clientId)
+
+  ## And inform the msgio server about this loss, so it can react.
+  await transport.msgio.onTransportClientDisconnected(transport.msgio, clientId, transport)
 
 proc cb(req: Request, transport: TransportWs): Future[void] {.async.} =
   let (isWebsocket, websocketError) = await(verifyWebsocketRequest(req, transport.namespace))
@@ -82,7 +89,11 @@ proc sendWebSocket(transport: TransportWs, msgio: MsgIoServer, clientId: ClientI
   msg.payload = data
   msg.target = $clientId # TODO what is this exactly?
   let msgSerialized: string = transport.serializer.serialize(msg)
-  await transport.clients[clientId].sendText(msgSerialized, false)
+  try:
+    await transport.clients[clientId].sendText(msgSerialized, false)
+  except:
+    echo "could not send to websocket: ", clientId
+    echo getCurrentExceptionMsg()
 
 proc newTransportWs*(msgio: MsgIoServer, namespace = "default", port: int = 9000, 
     address = "", serializer: SerializerBase): TransportWs =
@@ -101,6 +112,9 @@ proc newTransportWs*(msgio: MsgIoServer, namespace = "default", port: int = 9000
   result.serve = proc (): Future[void] {.async.} = 
     await serveWebSocket(transport)
   # result.httpCallback 
+
+# proc dumpStatus(transport: TransportWs):
+#     echo transport.
 
 when isMainModule:
   var msgio = newMsgIoServer()

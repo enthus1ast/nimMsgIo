@@ -48,6 +48,18 @@ proc onTransportClientConnected(msgio: MsgIoServer, clientId: ClientId, transpor
   else:
     await msgio.onClientConnected(msgio, clientId)
 
+proc onTransportClientDisconnected(msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[void] {.async.} =
+  # TODO should maybe onTransportClientDisconnecting
+  # and should call the user supplied onTransportClientDisconneced
+  msgio.clients.del(clientId)
+  # if msgio.onClientConnected.isNil:
+    # echo "server onTransportClientDisconnected is nil"
+  # else:
+    # await msgio.onClientConnected(msgio, clientId)
+
+
+
+
 proc newMsgIoServer*(): MsgIoServer = 
   ## The main msg io server
   ## forwards all messages, handles callbacks
@@ -57,6 +69,8 @@ proc newMsgIoServer*(): MsgIoServer =
   result.clients = newTable[ClientId, TransportBase]()
   result.onTransportClientConnecting = onTransportClientConnecting # proc (msgio: MsgIoServer): Future[Option[ClientId]] = onTransportClientConnecting(msgio)
   result.onTransportClientConnected = onTransportClientConnected # proc (msgio: MsgIoServer): Future[Option[ClientId]] = onTransportClientConnecting(msgio)
+  result.onTransportClientDisconnected = onTransportClientDisconnected
+
 
 proc disconnects*(msgio: MsgIoServer, clientId: ClientId): Future[void] {.async.} = 
     ## TODO WHERE TO INFORM ALL OTHER PARTICIPATING CLIENTS ABOUT THIS DISCONNECT?
@@ -104,9 +118,11 @@ when isMainModule:
     msgio = newMsgIoServer()
     transWs = msgio.newTransportWs(serializer = newSerializerJson())
     # transTcp = msgio.newTransportTcp(serializer = newSerializerMsgPack())
-    transTcp = msgio.newTransportTcp(serializer = newSerializerJson())
+    transTcpJson = msgio.newTransportTcp(serializer = newSerializerJson())
+    transTcpMsgPack = msgio.newTransportTcp(serializer = newSerializerMsgPack(), port = 9003)
   msgio.addTransport(transWs)
-  msgio.addTransport(transTcp)
+  msgio.addTransport(transTcpJson)
+  msgio.addTransport(transTcpMsgPack)
   msgio.onClientConnecting = proc (msgio: MsgIoServer, clientId: ClientId): Future[Option[ClientID]] {.async.} = #{.closure, gcsafe.} =
     echo "CLIENT CONNECTING IN USER SERVER"
     return some clientId
@@ -124,6 +140,6 @@ when isMainModule:
     # echo "payload:", msg.payload
     echo "----"
   asyncCheck msgio.serve()
-  assert msgio.transports.len == 2
+  # assert msgio.transports.len == 2
   runForever()
 
