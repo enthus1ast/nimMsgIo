@@ -1,3 +1,5 @@
+## msg io server transport
+## for the websocket protocol
 import tables, asyncnet, asyncdispatch, asynchttpserver, websocket, future, options
 import ../msgIoServer
 import ../types
