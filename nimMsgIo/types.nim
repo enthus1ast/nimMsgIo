@@ -28,7 +28,7 @@ type
   EventTransportClientConnecting* = proc (msgio: MsgIoServer): Future[Option[ClientId]] {.closure, gcsafe.}  
   EventTransportClientConnected* = proc (msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[void] {.closure, gcsafe.}  
   EventTransportClientDisconnected* = proc (msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[void] {.closure, gcsafe.}  
-  EventTransportMsg* = proc (msgio: MsgIoServer, senderClientId: ClientId, event, payload: string, transport: TransportBase): Future[void] {.closure, gcsafe.}  
+  EventTransportMsg* = proc (msgio: MsgIoServer, msg: MsgBase, transport: TransportBase): Future[void] {.closure, gcsafe.}  
 
   # Library user gets informed in his code:
   EventClientConnecting* = proc (msgio: MsgIoServer, clientId: ClientId): Future[Option[ClientId]] {.closure, gcsafe.}  
@@ -61,11 +61,13 @@ type
     onTransportClientConnecting*: EventTransportClientConnecting
     onTransportClientConnected*: EventTransportClientConnected
     onTransportClientDisconnected*: EventTransportClientDisconnected
+    onTransportMsg*: EventTransportMsg
 
     ## User Callbacks
     onClientConnecting*: EventClientConnecting
     onClientConnected*: EventClientConnected
     onClientDisconnected*: EventClientDisconnected
+    onClientMsg*: EventClientMsg
 
   Client* = object 
     clientId: ClientId

@@ -26,7 +26,43 @@ proc onClientConnecting(transport: TransportWs, req: Request): Future[void] {.as
     return
   clientId = clientIdOpt.get()
   transport.clients.add(clientId, req.client)
+
   await transport.msgio.onTransportClientConnected(transport.msgio, clientId, transport)
+
+  ## transport main loop
+  while true:
+    var msgOpt: Option[MsgBase]
+    try:
+      var f = await req.client.readData(false)
+      echo "(opcode: " & $f.opcode & ", data: " & $f.data.len & ")"
+
+      if f.opcode == Opcode.Text:
+        # EventTransportMsg* = proc (msgio: MsgIoServer, msg, transport: TransportBase): Future[void] {.closure, gcsafe.}  
+        try:
+          let msg =  transport.serializer.unserialize( f.data )
+          # echo msg
+          msgOpt = some msg
+        except:
+          echo getCurrentExceptionMsg()
+          echo "could not unserialize message:", f.data
+          msgOpt = none MsgBase
+        
+        # await transport.msgio.onTransportMsg(transport.msgio, clientId, even)
+      # if f.opcode == Opcode.Text:
+      #   # waitFor req.client.sendText("thanks for the data!", false)
+      #   discard
+      # else:
+      #   # waitFor req.client.sendBinary(f.data, false)
+      #   discard
+
+    except:
+      echo getCurrentExceptionMsg()
+      break  
+
+    if msgOpt.isSome:
+      await transport.msgio.onClientMsg(transport.msgio, msgOpt.get(), transport)
+    else:
+      echo "the msg could not encoded or something else..."
 
 proc cb(req: Request, transport: TransportWs): Future[void] {.async.} =
   let (isWebsocket, websocketError) = await(verifyWebsocketRequest(req, transport.namespace))

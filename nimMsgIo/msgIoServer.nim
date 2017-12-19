@@ -88,7 +88,13 @@ proc pingClients(msgio: MsgIoServer): Future[void] {.async.} =
 proc send(msgio: MsgIoServer, targetClient: ClientId, event, data: string): Future[void] =
   return msgio.clients[targetClient].send(msgio, targetClient, event, data)
 
+proc broadcast(msgio: MsgIoServer, event, data: string): Future[void] {.async.} =
+  ## sends to every connected client on this server
+  for clientId, transport in msgio.clients.pairs:
+    await transport.send(msgio, clientId, event, data)
+
 when isMainModule:
+  import strutils
   import transports/transportWebSocket
   import transports/transportTcp
   import serializer/serializerJson
@@ -109,7 +115,14 @@ when isMainModule:
     await msgio.send(clientId, "event", "data")
     await msgio.send(clientId, "event", "hat funktioniert, gä? : )")
     await msgio.send(clientId, "event", "ja! :)")    
-  # msgio.onC
+    await msgio.broadcast("helloWORLD", "USER: $# connected to this server!" % [$clientId])
+  msgio.onClientMsg = proc (msgio: MsgIoServer, msg: MsgBase, transport: TransportBase): Future[void] {.async.} = 
+    echo "in user supplied onClientMsg"
+    echo msg
+    await msgio.broadcast(msg.event, msg.payload)
+    # echo "event:", msg.event
+    # echo "payload:", msg.payload
+    echo "----"
   asyncCheck msgio.serve()
   assert msgio.transports.len == 2
   runForever()
