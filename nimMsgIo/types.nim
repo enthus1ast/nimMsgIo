@@ -28,11 +28,13 @@ type
   EventTransportClientConnecting* = proc (msgio: MsgIoServer): Future[Option[ClientId]] {.closure, gcsafe.}  
   EventTransportClientConnected* = proc (msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[void] {.closure, gcsafe.}  
   EventTransportClientDisconnected* = proc (msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[void] {.closure, gcsafe.}  
-  
+  EventTransportMsg* = proc (msgio: MsgIoServer, senderClientId: ClientId, event, payload: string, transport: TransportBase): Future[void] {.closure, gcsafe.}  
+
   # Library user gets informed in his code:
   EventClientConnecting* = proc (msgio: MsgIoServer, clientId: ClientId): Future[Option[ClientId]] {.closure, gcsafe.}  
   EventClientConnected* = proc (msgio: MsgIoServer, clientId: ClientId): Future[void] {.closure, gcsafe.}  
   EventClientDisconnected* = EventTransportClientDisconnected
+  EventClientMsg* = EventTransportMsg
 
   # EventTransportJoinGroup* #= proc (msgio: MsgIoServer, clientId: ClientId): Future[void] {.closure, gcsafe.}  
   # EventTransportLeaveGroup*
@@ -44,6 +46,7 @@ type
     disconnects*: ActionTransportDisconnects ## transport disconnects a client
     clientConnecting*: EventTransportClientConnecting
     clientDisconnected*: EventTransportClientDisconnected
+    serializer*: SerializerBase
     # hasClient*: -> bool
   MsgToServer* = object of MsgBase
   MsgFromServer = object of MsgBase

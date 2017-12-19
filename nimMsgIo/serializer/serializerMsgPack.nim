@@ -8,24 +8,28 @@
 #
 ## json serializer for transport data exchange
 import ../types
-import json
+import streams
+import msgpack4nim
 
 type 
-  SerializerJson* = object of SerializerBase
+  SerializerMsgPack* = object of SerializerBase
   # SerializerBase = object of RootObj
   #   serialize: proc (msg: MsgBase): string
   #   unserialize: proc (msgstr: string): MsgBase
 
+
 proc serialize(msg: MsgBase): string =
-  result = $ %* msg
+  var ss = newStringStream()
+  ss.pack(msg)
+  return ss.data
 
 proc unserialize(msgstr: string): MsgBase =
   result = MsgBase()
-  let jnode = msgstr.parseJson()
-  result = jnode.to(MsgBase)
-  
-proc newSerializerJson*(): SerializerJson =
-  result = SerializerJson()
+  var ss = newStringStream(msgstr)
+  ss.unpack(result)
+
+proc newSerializerMsgPack*(): SerializerMsgPack =
+  result = SerializerMsgPack()
   result.serialize = proc (msg: MsgBase): string = 
     return serialize(msg)
   result.unserialize = proc (msgstr: string): MsgBase = 

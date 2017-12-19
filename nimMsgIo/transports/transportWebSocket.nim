@@ -4,6 +4,7 @@ import tables, asyncnet, asyncdispatch, asynchttpserver, websocket, future, opti
 import ../msgIoServer
 import ../types
 
+
 type
   TransportWs* = ref object of TransportBase
     clients: ClientsWs
@@ -40,9 +41,15 @@ proc serveWebSocket(transport: TransportWs): Future[void] {.async.} =
   echo "websocketTransport listens on: ", $transport.port.int
 
 proc sendWebSocket(transport: TransportWs, msgio: MsgIoServer, clientId: ClientId, event, data: string): Future[void] {.async.}= 
-  await transport.clients[clientId].sendText(data, false)
+  var msg = MsgBase()
+  msg.event = event
+  msg.payload = data
+  msg.target = $clientId # TODO what is this exactly?
+  let msgSerialized: string = transport.serializer.serialize(msg)
+  await transport.clients[clientId].sendText(msgSerialized, false)
 
-proc newTransportWs*(msgio: MsgIoServer, namespace = "default", port: int = 9000, address = ""): TransportWs =
+proc newTransportWs*(msgio: MsgIoServer, namespace = "default", port: int = 9000, 
+    address = "", serializer: SerializerBase): TransportWs =
   result = TransportWs()
   result.msgio = msgio
   result.proto = "ws"
@@ -51,6 +58,7 @@ proc newTransportWs*(msgio: MsgIoServer, namespace = "default", port: int = 9000
   result.httpServer = newAsyncHttpServer()
   result.namespace = namespace
   result.clients = newTable[ClientId, AsyncSocket]()
+  result.serializer = serializer
   var transport = result
   result.send = proc(msgio: MsgIoServer, clientId: ClientId, event, data: string): Future[void] {.async.} = 
     await sendWebSocket(transport, msgio, clientId, event, data)

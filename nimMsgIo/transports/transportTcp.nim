@@ -8,10 +8,11 @@
 ## this transport uses the `net` syntax which 
 ## prefixes every "line/frame/message" with its length
 ## as an integer
-import tables, asyncnet, asyncdispatch, future, options
+import tables, asyncnet, asyncdispatch, future, options, streams
 # import websocket
 import ../msgIoServer
 import ../types
+
 
 type
   TransportTcp* = ref object of TransportBase
@@ -53,6 +54,18 @@ type
   # else: 
   #   echo "no http!"
 
+proc toTransportTcpLine(str: string): TransportTcpLine =
+  if str.len > high(uint32).int: raise newException(ValueError, "payload is too long for this tcp transport")
+  result = TransportTcpLine()
+  result.size = str.len.uint32
+  result.data = str
+
+proc `$`(line: TransportTcpLine): string =
+  var ss = newStringStream()
+  ss.write(line.size)
+  ss.write(line.data)
+  return ss.data
+
 proc onClientConnecting(transport: TransportTcp, address: string, socket: AsyncSocket): Future[void] {.async.} =
   var 
     clientIdOpt = await transport.msgio.onTransportClientConnecting(transport.msgio)
@@ -78,6 +91,7 @@ proc handleTcp(transport: TransportTcp, address: string, socket: AsyncSocket): F
         socket.close
         return
     asyncCheck onClientConnecting(transport, address, socket)
+    
 
 proc serveTcp(transport: TransportTcp): Future[void] {.async.} = 
   # asyncCheck transport.tcpServer.serve(transport.port, (req: Request) => cb(req, transport) )  
@@ -93,20 +107,17 @@ proc serveTcp(transport: TransportTcp): Future[void] {.async.} =
     echo address
     asyncCheck transport.handleTcp(address, socket)
 
-
- 
-
 proc sendTcp(transport: TransportTcp, msgio: MsgIoServer, clientId: ClientId, event, data: string): Future[void] {.async.}= 
-  # await transport.clients[clientId].sendText(data, false)
-  echo "would send to tcp"
-  # await transport.clients[clientId].sendText(data, false)
-  await transport.clients[clientId].socket.send(data)
-  discard
+  var msg = MsgBase()
+  msg.event = event
+  msg.payload = data
+  msg.target = $clientId # TODO what is this exactly?
+  let msgSerialized: string = transport.serializer.serialize(msg)
+  let line = msgSerialized.toTransportTcpLine()
+  await transport.clients[clientId].socket.send($line)
 
 
-
-
-proc newTransportTcp*(msgio: MsgIoServer, namespace = "default", port: int = 9001, 
+proc newTransportTcp*(msgio: MsgIoServer, serializer: SerializerBase, namespace = "default", port: int = 9001, 
     address = "", enableSsl = false, magicBytes = "msgio"): TransportTcp =
   result = TransportTcp()
   result.msgio = msgio
@@ -116,6 +127,7 @@ proc newTransportTcp*(msgio: MsgIoServer, namespace = "default", port: int = 900
   result.listenPort = port.Port
   result.namespace = namespace
   result.magicBytes = magicBytes
+  result.serializer = serializer
 
   result.tcpServer = newAsyncSocket()
   result.tcpServer.setSockOpt(OptReuseAddr, true)
@@ -131,7 +143,10 @@ proc newTransportTcp*(msgio: MsgIoServer, namespace = "default", port: int = 900
   # result.httpCallback 
 
 when isMainModule:
+  # import ../serializer/serializerMsgPack
+  import ../serializer/serializerJson
   var msgio = newMsgIoServer()
-  var transportTcp = msgio.newTransportTcp(port=9001)
+  # var transportTcp = msgio.newTransportTcp(serializer = newSerializerMsgPack(), port=9001)
+  var transportTcp = msgio.newTransportTcp(serializer = newSerializerJson(), port=9001)
   asyncCheck serveTcp(transportTcp)
   runForever()

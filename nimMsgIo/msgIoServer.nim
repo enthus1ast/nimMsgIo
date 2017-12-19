@@ -63,34 +63,13 @@ proc disconnects*(msgio: MsgIoServer, clientId: ClientId): Future[void] {.async.
     ## disconnects a client from the msgIoServer.
     ## client leaves all rooms
     msgio.roomLogic.disconnects(clientId)
-    
+
     await msgio.clients[clientId].disconnects(clientId)
 
 proc serve*(msgio: MsgIoServer): Future[void] {.async.} =
   for transport in msgio.transports:
     echo transport.proto, " transport loaded"
     asyncCheck transport.serve()
-
-when isMainModule:
-  import transports/transportWebSocket
-  import transports/transportTcp
-  var 
-    msgio = newMsgIoServer()
-    transWs = msgio.newTransportWs()
-    transTcp = msgio.newTransportTcp()
-  msgio.addTransport(transWs)
-  msgio.addTransport(transTcp)
-  msgio.onClientConnecting = proc (msgio: MsgIoServer, clientId: ClientId): Future[Option[ClientID]] {.async.} = #{.closure, gcsafe.} =
-    echo "CLIENT CONNECTING IN USER SERVER"
-    return some clientId
-  msgio.onClientConnected = proc (msgio: MsgIoServer, clientId: ClientId): Future[void] {.async.} = #{.closure, gcsafe.} =
-    echo "in user supplied on onClientConnected"
-    await msgio.clients[clientId].send(msgio, clientId, "event", "data")
-    await msgio.clients[clientId].send(msgio, clientId, "event", "hat funktioniert, gä? : )")
-    await msgio.clients[clientId].send(msgio, clientId, "event", "ja! :)")
-  asyncCheck msgio.serve()
-  assert msgio.transports.len == 2
-  runForever()
 
 proc pingClients(msgio: MsgIoServer): Future[void] {.async.} =
   ## periodically pings clients
@@ -106,3 +85,32 @@ proc pingClients(msgio: MsgIoServer): Future[void] {.async.} =
       else:
         echo "ping:", result, " " ,clientId 
       
+proc send(msgio: MsgIoServer, targetClient: ClientId, event, data: string): Future[void] =
+  return msgio.clients[targetClient].send(msgio, targetClient, event, data)
+
+when isMainModule:
+  import transports/transportWebSocket
+  import transports/transportTcp
+  import serializer/serializerJson
+  import serializer/serializerMsgPack
+
+  var 
+    msgio = newMsgIoServer()
+    transWs = msgio.newTransportWs(serializer = newSerializerJson())
+    # transTcp = msgio.newTransportTcp(serializer = newSerializerMsgPack())
+    transTcp = msgio.newTransportTcp(serializer = newSerializerJson())
+  msgio.addTransport(transWs)
+  msgio.addTransport(transTcp)
+  msgio.onClientConnecting = proc (msgio: MsgIoServer, clientId: ClientId): Future[Option[ClientID]] {.async.} = #{.closure, gcsafe.} =
+    echo "CLIENT CONNECTING IN USER SERVER"
+    return some clientId
+  msgio.onClientConnected = proc (msgio: MsgIoServer, clientId: ClientId): Future[void] {.async.} = #{.closure, gcsafe.} =
+    echo "in user supplied on onClientConnected"
+    await msgio.send(clientId, "event", "data")
+    await msgio.send(clientId, "event", "hat funktioniert, gä? : )")
+    await msgio.send(clientId, "event", "ja! :)")    
+  # msgio.onC
+  asyncCheck msgio.serve()
+  assert msgio.transports.len == 2
+  runForever()
+
