@@ -102,23 +102,20 @@ proc onClientConnecting(transport: TransportTcp, address: string, socket: AsyncS
     let msgStr = buffer
     echo "MSG: ", msgStr
 
-    var msg = transport.serializer.unserialize(msgStr) # msgStr
+    msgOpt = transport.serializer.unserialize(msgStr)
     
-    echo msg
-    # if msg
-    # @ <---------------------- HERE
+    if msgOpt.isSome:
+      await transport.msgio.onClientMsg(transport.msgio, msgOpt.get(), transport)
+    else:
+      echo "the msg could not encoded or something else..."
+  
+  
+  ## Client is gone, delete it from this transport
+  socket.close()
+  transport.clients.del(clientId)
 
-    # quit()
-    # msgLenStr.setPosition(0)
-    # echo  "msgLenStr", repr msgLenStr
-
-
-    # var msgLen = msgLenStr.readUint32().int # cast[uint32]( msgLenStr ).int
-
-
-    # echo "msgLen ", msgLen 
-    # var msgData = await socket.recv( msgLen )
-    # echo "msgData ", msgData      
+  ## And inform the msgio server about this loss, so it can react.
+  await transport.msgio.onTransportClientDisconnected(transport.msgio, clientId, transport)
     
 
 proc handleTcp(transport: TransportTcp, address: string, socket: AsyncSocket): Future[void] {.async.} = 
