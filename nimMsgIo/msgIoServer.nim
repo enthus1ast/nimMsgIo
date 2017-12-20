@@ -1,6 +1,6 @@
 #
 #
-#                   WebsocketIO
+#                   msgIo
 #        (c) Copyright 2017 David Krause
 #
 #    See the file "copying.txt", included in this
@@ -15,7 +15,7 @@
 ## messages to rooms are distributed to all participating clients.
 
 import types, typesShared
-import asyncdispatch, options, sequtils
+import asyncdispatch, options, sequtils, sets
 import roomLogic
 
 proc addTransport*(msgio: MsgIoServer, transport: TransportBase) = 
@@ -34,41 +34,38 @@ proc addTransport*(msgio: MsgIoServer, transport: TransportBase) =
   ##    runForever()
   msgio.transports.add transport
 
-proc onTransportClientConnecting*(msgio: MsgIoServer): Future[Option[ClientId]] {.async.} = 
+proc onTransportClientConnecting*(msgio: MsgIoServer, transport: TransportBase): Future[Option[ClientId]] {.async.} = 
   ## If the option is none, the transport will immediantly disconnect
   ## the client, effectifly refuseing the connection.
   result = some msgio.roomLogic.genClientId()
   if not msgio.onClientConnecting.isNil:
-    result = await msgio.onClientConnecting(msgio, result.get()) ## usercallback can change the clientId!
+    result = await msgio.onClientConnecting(msgio, result.get(), transport) ## usercallback can change the clientId!
 
 proc onTransportClientConnected(msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[void] {.async.} =
   msgio.clients.add(clientId, transport)
+  if not msgio.roomLogic.connects(clientId): return
   if msgio.onClientConnected.isNil:
     echo "server onClientConnected is nil"
   else:
-    await msgio.onClientConnected(msgio, clientId)
+    await msgio.onClientConnected(msgio, clientId, transport)
 
 proc onTransportClientDisconnected(msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[void] {.async.} =
   # TODO should maybe onTransportClientDisconnecting
   # and should call the user supplied onTransportClientDisconneced
   # msgio.onClient
 
-
   ## TODO ???
   # We must delete the client after the user callback,
   # cause the user maybe want to use the old client information.
-  msgio.clients.del(clientId)
   
+  msgio.clients.del(clientId)
+  msgio.roomLogic.disconnects(clientId)
   
   if msgio.onClientDisconnected.isNil:
     echo "server onTransportClientDisconnected is nil"
   else:
     await msgio.onClientDisconnected(msgio, clientId, transport)
   
-
-
-
-
 proc newMsgIoServer*(): MsgIoServer = 
   ## The main msg io server
   ## forwards all messages, handles callbacks
@@ -80,14 +77,11 @@ proc newMsgIoServer*(): MsgIoServer =
   result.onTransportClientConnected = onTransportClientConnected # proc (msgio: MsgIoServer): Future[Option[ClientId]] = onTransportClientConnecting(msgio)
   result.onTransportClientDisconnected = onTransportClientDisconnected
 
-
-
 proc disconnects*(msgio: MsgIoServer, clientId: ClientId): Future[void] {.async.} = 
     ## TODO WHERE TO INFORM ALL OTHER PARTICIPATING CLIENTS ABOUT THIS DISCONNECT?
     ## disconnects a client from the msgIoServer.
     ## client leaves all rooms
     msgio.roomLogic.disconnects(clientId)
-
     await msgio.clients[clientId].disconnects(clientId)
 
 proc serve*(msgio: MsgIoServer): Future[void] {.async.} =
@@ -117,35 +111,66 @@ proc broadcast(msgio: MsgIoServer, event, data: string): Future[void] {.async.} 
   for clientId, transport in msgio.clients.pairs:
     await transport.send(msgio, clientId, event, data)
 
+proc toRoom(msgio: MsgIoServer, roomId: RoomId, event, data: string): Future[void] {.async.} =
+  ## sends to a given room
+  if not msgio.roomLogic.rooms.hasKey(roomId): return
+  for clientInRoom in msgio.roomLogic.rooms[roomId].clients.items:
+    await msgio.clients[clientInRoom].send(msgio, clientInRoom, event, data) 
+
+proc joinRoom(msgio: MsgIoServer, clientId: ClientId, roomId: RoomId) =
+  ## convinient function let clientId join room.
+  msgio.roomLogic.joinRoom(clientId, roomId)
+
+proc leaveRoom(msgio: MsgIoServer, clientId: ClientId, roomId: RoomId) =
+  ## convinient function let clientId join room.
+  msgio.roomLogic.leaveRoom(clientId, roomId)
+
+
 when isMainModule:
   import strutils
   import transports/transportWebSocket
   import transports/transportTcp
   import serializer/serializerJson
   import serializer/serializerMsgPack
+  import asynchttpserver
 
   var 
     msgio = newMsgIoServer()
-    transWs = msgio.newTransportWs(serializer = newSerializerJson())
+    transWs = msgio.newTransportWs(serializer = newSerializerJson()) #, httpCallback = )
+
     # transTcp = msgio.newTransportTcp(serializer = newSerializerMsgPack())
     transTcpJson = msgio.newTransportTcp(serializer = newSerializerJson())
     transTcpMsgPack = msgio.newTransportTcp(serializer = newSerializerMsgPack(), port = 9003)
+  transWs.httpCallback = proc(transport: TransportBase, msgio: MsgIoServer, req: Request): Future[void] {.async.} =
+      ## websocket transport can have a http callback.
+      echo "hello from usersupplied httpCallback"
+      await req.respond(Http200, "Hello World; hello from usersupplied httpCallback")
   msgio.addTransport(transWs)
   msgio.addTransport(transTcpJson)
   msgio.addTransport(transTcpMsgPack)
-  msgio.onClientConnecting = proc (msgio: MsgIoServer, clientId: ClientId): Future[Option[ClientID]] {.async.} = #{.closure, gcsafe.} =
+  msgio.onClientConnecting = proc (msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[Option[ClientID]] {.async.} = #{.closure, gcsafe.} =
     echo "CLIENT CONNECTING IN USER SERVER"
     return some clientId
-  msgio.onClientConnected = proc (msgio: MsgIoServer, clientId: ClientId): Future[void] {.async.} = #{.closure, gcsafe.} =
+  msgio.onClientConnected = proc (msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[void] {.async.} = #{.closure, gcsafe.} =
     echo "in user supplied on onClientConnected"
     await msgio.send(clientId, "event", "data")
     await msgio.send(clientId, "event", "hat funktioniert, gä? : )")
     await msgio.send(clientId, "event", "ja! :)")    
     await msgio.broadcast("helloWORLD", "USER: $# connected to this server!" % [$clientId])
+    msgio.joinRoom(clientId, "lobby")
+    msgio.joinRoom(clientId, transport.proto)
+    echo msgio.roomLogic.rooms
   msgio.onClientMsg = proc (msgio: MsgIoServer, msg: MsgBase, transport: TransportBase): Future[void] {.async.} = 
     echo "in user supplied onClientMsg"
     echo msg
-    await msgio.broadcast(msg.event, msg.payload)
+    case msg.event
+    of "tcp":
+      await msgio.toRoom("tcp", "msg", msg.payload)
+    of "ws":
+      await msgio.toRoom("ws", "msgBROWSER", msg.payload)
+    else:
+      discard
+    # await msgio.broadcast(msg.event, msg.payload)
     # echo "event:", msg.event
     # echo "payload:", msg.payload
     echo "----"

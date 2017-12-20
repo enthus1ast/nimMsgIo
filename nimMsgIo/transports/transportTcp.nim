@@ -14,7 +14,6 @@ import ../msgIoServer
 import ../types
 import typesTransportTcp
 
-
 type
   TransportTcp* = ref object of TransportBase
     clients: ClientsTcp
@@ -22,42 +21,16 @@ type
     listenAddress: string
     listenPort: Port
     namespace: string
-    msgio: MsgIoServer # parent
+    msgio: MsgIoServer
     enableSsl: bool ## TODO
     magicBytes: string # client has to send these directly after connection
-    maxMsgLen: int
-    # httpCallback 
+    maxMsgLen: int 
   ClientsTcpStorage = tuple[socket:AsyncSocket, address: string]
   ClientsTcp = TableRef[ClientId, ClientsTcpStorage ]
 
-
-
-# proc onClientConnecting(transport: TransportTcp, req: Request): Future[void] {.async.} =
-#   var 
-#     clientIdOpt = await transport.msgio.onTransportClientConnecting(transport.msgio)
-#     clientId: ClientId
-#   if clientIdOpt.isNone: 
-#     echo "User gave the transport no ClientId, so we disconnect the fresh user..."
-#     req.client.close()
-#     return
-#   clientId = clientIdOpt.get()
-#   transport.clients.add(clientId, req.client)
-#   await transport.msgio.onTransportClientConnected(transport.msgio, clientId, transport)
-
-# proc cb(req: Request, transport: TransportTcp): Future[void] {.async.} =  
-#   discard
-
-  # let (isWebsocket, websocketError) = await(verifyWebsocketRequest(req, transport.namespace))
-  # if isWebsocket: 
-  #   echo "is ws"
-  #   await onClientConnecting(transport,req)
-  # else: 
-  #   echo "no http!"
-
-
 proc onClientConnecting(transport: TransportTcp, address: string, socket: AsyncSocket): Future[void] {.async.} =
   var 
-    clientIdOpt = await transport.msgio.onTransportClientConnecting(transport.msgio)
+    clientIdOpt = await transport.msgio.onTransportClientConnecting(transport.msgio, transport)
     clientId: ClientId
   if clientIdOpt.isNone: 
     echo "ServerProgrammer gave the transport no ClientId, so we disconnect the fresh user..."
@@ -73,34 +46,37 @@ proc onClientConnecting(transport: TransportTcp, address: string, socket: AsyncS
   ## trainsport main loop
   while true:
     var msgOpt: Option[MsgBase]
-    # var stringStream = newStringStream()
     var buffer: string 
+    var msgLen: int
+    
+    # read the msg len
     try:
       buffer = await socket.recv( sizeof(uint32) )
     except:
       echo getCurrentExceptionMsg()
       break
-    if buffer == "":
-      break
+    if buffer.len == 0: break
     var msgLenStr = newStringStream( buffer )
-    echo repr msgLenStr
-    let msgLen = msgLenStr.readUint32().int
-    echo "LEN:", msgLen
+
+    try:
+      msgLen = msgLenStr.readUint32().int
+    except:
+      echo getCurrentExceptionMsg()
+      echo "could not read int from msgLenStr"
+      break
 
     if msgLen > transport.maxMsgLen: 
       echo "msg to large!: ", msgLen
       break
 
-    # now read the payload message
+    # read the payload message
     try:
       buffer = await socket.recv( msgLen )
     except:
       echo getCurrentExceptionMsg()
       break
-    if buffer == "":
-      break
+    if buffer.len == 0: break
     let msgStr = buffer
-    echo "MSG: ", msgStr
 
     msgOpt = transport.serializer.unserialize(msgStr)
     
@@ -128,10 +104,6 @@ proc handleTcp(transport: TransportTcp, address: string, socket: AsyncSocket): F
       return
   asyncCheck onClientConnecting(transport, address, socket)
 
-  # EventTransportMsg* = proc (msgio: MsgIoServer, msg, transport: TransportBase): Future[void] {.closure, gcsafe.}  
-
-
-
 proc serveTcp(transport: TransportTcp): Future[void] {.async.} = 
   # asyncCheck transport.tcpServer.serve(transport.port, (req: Request) => cb(req, transport) )  
   ## Binds to address, starts listening on transport port
@@ -141,7 +113,6 @@ proc serveTcp(transport: TransportTcp): Future[void] {.async.} =
   transport.tcpServer.bindAddr(Port(transport.listenPort))
   transport.tcpServer.listen()
   while true:
-    echo "tcp."
     let (address, socket) = await transport.tcpServer.acceptAddr()
     echo address
     asyncCheck transport.handleTcp(address, socket)
@@ -157,7 +128,6 @@ proc sendTcp(transport: TransportTcp, msgio: MsgIoServer, clientId: ClientId, ev
     return
   let line = msgSerializedOpt.get().toTransportTcpLine()
   await transport.clients[clientId].socket.send($line)
-
 
 proc newTransportTcp*(msgio: MsgIoServer, serializer: SerializerBase, namespace = "default", port: int = 9001, 
     address = "", enableSsl = false, magicBytes = "msgio", maxMsgLen = 64_000): TransportTcp =
@@ -178,12 +148,9 @@ proc newTransportTcp*(msgio: MsgIoServer, serializer: SerializerBase, namespace 
   result.clients = newTable[ClientId, ClientsTcpStorage]()
   var transport = result
   result.send = proc(msgio: MsgIoServer, clientId: ClientId, event, data: string): Future[void] {.async.} = 
-    # await sendWebSocket(transport, msgio, clientId, event, data)
     await sendTcp(transport, msgio, clientId, event, data)
   result.serve = proc (): Future[void] {.async.} = 
-    # discard
     await serveTcp(transport)
-  # result.httpCallback 
 
 when isMainModule:
   # import ../serializer/serializerMsgPack

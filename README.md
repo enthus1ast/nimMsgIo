@@ -21,3 +21,24 @@ serializer/
   ## Which can than be transfered over the transports communication channel
   serializerJson
   serializerMsgPack 
+
+types*
+  ## typedefinitions for clients and server
+
+examples/
+  ## server and client examples
+
+# Join rooms
+Clients can be grouped in "rooms". Every client can participate in multiple rooms. 
+Clients can ask the server to join them in rooms. But the server has to fullfill this request. The default is that noone can join any rooms.
+
+To let clients join rooms the programmer must call joinRoom `on the server`.
+After this a client can send messages directly to the given room, the server
+will then relay all messages send to this room to all participating clients. 
+
+
+# Send to clients
+Clients can send "directly" to another client. For this the sending client
+must somehow know the other clients id. 
+The programmer must exchange the other user client id in their protocol.
+msgio has no build in concept of exchangeing clients.

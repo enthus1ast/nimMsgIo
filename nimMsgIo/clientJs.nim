@@ -19,7 +19,6 @@ type
   MsgIoClient = object
     ws: WebSocket
 
-
 proc newWebSocket(url, key: cstring): WebSocket
   {.importcpp: "new WebSocket(@)".}
 

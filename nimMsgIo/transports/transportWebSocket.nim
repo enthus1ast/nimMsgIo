@@ -4,8 +4,8 @@ import tables, asyncnet, asyncdispatch, asynchttpserver, websocket, future, opti
 import ../msgIoServer
 import ../types
 
-
 type
+  HttpCallback* = proc(transport: TransportBase, msgio: MsgIoServer, req: Request): Future[void]
   TransportWs* = ref object of TransportBase
     clients: ClientsWs
     httpServer: AsyncHttpServer
@@ -13,12 +13,12 @@ type
     port: Port
     namespace: string
     msgio: MsgIoServer # parent
-    # httpCallback 
+    httpCallback*: HttpCallback
   ClientsWs = TableRef[ClientId, AsyncSocket]
 
 proc onClientConnecting(transport: TransportWs, req: Request): Future[void] {.async.} =
   var 
-    clientIdOpt = await transport.msgio.onTransportClientConnecting(transport.msgio)
+    clientIdOpt = await transport.msgio.onTransportClientConnecting(transport.msgio, transport)
     clientId: ClientId
   if clientIdOpt.isNone: 
     echo "ServerProgrammer gave the transport no ClientId, so we disconnect the fresh user..."
@@ -47,7 +47,6 @@ proc onClientConnecting(transport: TransportWs, req: Request): Future[void] {.as
     else:
       echo "the msg could not encoded or something else..."
   
-        
   ## Client is gone, delete it from this transport
   transport.clients.del(clientId)
 
@@ -61,6 +60,7 @@ proc cb(req: Request, transport: TransportWs): Future[void] {.async.} =
     await onClientConnecting(transport,req)
   else: 
     echo "no http!"
+    await transport.httpCallback( transport, transport.msgio, req )
 
 proc serveWebSocket(transport: TransportWs): Future[void] {.async.} = 
   asyncCheck transport.httpServer.serve(transport.port, (req: Request) => cb(req, transport) )  
@@ -99,11 +99,9 @@ proc newTransportWs*(msgio: MsgIoServer, namespace = "default", port: int = 9000
     await serveWebSocket(transport)
   # result.httpCallback 
 
-# proc dumpStatus(transport: TransportWs):
-#     echo transport.
-
 when isMainModule:
+  import ../serializer/serializerMsgPack
   var msgio = newMsgIoServer()
-  var transportWs = msgio.newTransportWs(port=9000)
+  var transportWs = msgio.newTransportWs(port=9000, serializer = newSerializerMsgPack())
   asyncCheck transportWs.serve()
   runForever()

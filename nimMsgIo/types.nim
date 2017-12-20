@@ -25,14 +25,14 @@ type
   ActionTransportDisconnects* = proc (clientId: ClientId): Future[void] {.closure, gcsafe.}
   
   # Middleware gets informed:
-  EventTransportClientConnecting* = proc (msgio: MsgIoServer): Future[Option[ClientId]] {.closure, gcsafe.}  
+  EventTransportClientConnecting* = proc (msgio: MsgIoServer, transport: TransportBase): Future[Option[ClientId]] {.closure, gcsafe.}  
   EventTransportClientConnected* = proc (msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[void] {.closure, gcsafe.}  
   EventTransportClientDisconnected* = proc (msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[void] {.closure, gcsafe.}  
   EventTransportMsg* = proc (msgio: MsgIoServer, msg: MsgBase, transport: TransportBase): Future[void] {.closure, gcsafe.}  
 
   # Library user gets informed in his code:
-  EventClientConnecting* = proc (msgio: MsgIoServer, clientId: ClientId): Future[Option[ClientId]] {.closure, gcsafe.}  
-  EventClientConnected* = proc (msgio: MsgIoServer, clientId: ClientId): Future[void] {.closure, gcsafe.}  
+  EventClientConnecting* = proc (msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[Option[ClientId]] {.closure, gcsafe.}  
+  EventClientConnected* = proc (msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[void] {.closure, gcsafe.}  
   EventClientDisconnected* = EventTransportClientDisconnected
   EventClientMsg* = EventTransportMsg
 
