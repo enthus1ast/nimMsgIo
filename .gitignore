@@ -9,6 +9,7 @@ nimMsgIo/types
 nimMsgIo/wsioserver
 nimMsgIo/transports/transportWebSocket
 nimMsgIo/transports/transportTcp
+nimMsgIo/transports/typesTransportTcp
 nimMsgIo/serializer/serializerJson
 nimMsgIo/serializer/serializerMsgPack
 nimMsgIo/testi

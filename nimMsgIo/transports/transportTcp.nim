@@ -8,10 +8,11 @@
 ## this transport uses the `net` syntax which 
 ## prefixes every "line/frame/message" with its length
 ## as an integer
-import tables, asyncnet, asyncdispatch, future, options, streams
+import tables, asyncnet, asyncdispatch, future, options, streams, strutils
 # import websocket
 import ../msgIoServer
 import ../types
+import typesTransportTcp
 
 
 type
@@ -24,13 +25,12 @@ type
     msgio: MsgIoServer # parent
     enableSsl: bool ## TODO
     magicBytes: string # client has to send these directly after connection
+    maxMsgLen: int
     # httpCallback 
   ClientsTcpStorage = tuple[socket:AsyncSocket, address: string]
   ClientsTcp = TableRef[ClientId, ClientsTcpStorage ]
 
-  TransportTcpLine* = object
-    size*: uint32
-    data*: string
+
 
 # proc onClientConnecting(transport: TransportTcp, req: Request): Future[void] {.async.} =
 #   var 
@@ -54,17 +54,6 @@ type
   # else: 
   #   echo "no http!"
 
-proc toTransportTcpLine(str: string): TransportTcpLine =
-  if str.len > high(uint32).int: raise newException(ValueError, "payload is too long for this tcp transport")
-  result = TransportTcpLine()
-  result.size = str.len.uint32
-  result.data = str
-
-proc `$`(line: TransportTcpLine): string =
-  var ss = newStringStream()
-  ss.write(line.size)
-  ss.write(line.data)
-  return ss.data
 
 proc onClientConnecting(transport: TransportTcp, address: string, socket: AsyncSocket): Future[void] {.async.} =
   var 
@@ -81,17 +70,70 @@ proc onClientConnecting(transport: TransportTcp, address: string, socket: AsyncS
   transport.clients.add(clientId, clientStorage)
   await transport.msgio.onTransportClientConnected(transport.msgio, clientId, transport)
 
+  ## trainsport main loop
+  while true:
+    var msgOpt: Option[MsgBase]
+    # var stringStream = newStringStream()
+    var buffer: string 
+    try:
+      buffer = await socket.recv( sizeof(uint32) )
+    except:
+      echo getCurrentExceptionMsg()
+      break
+    if buffer == "":
+      break
+    var msgLenStr = newStringStream( buffer )
+    echo repr msgLenStr
+    let msgLen = msgLenStr.readUint32().int
+    echo "LEN:", msgLen
+
+    if msgLen > transport.maxMsgLen: 
+      echo "msg to large!: ", msgLen
+      break
+
+    # now read the payload message
+    try:
+      buffer = await socket.recv( msgLen )
+    except:
+      echo getCurrentExceptionMsg()
+      break
+    if buffer == "":
+      break
+    let msgStr = buffer
+    echo "MSG: ", msgStr
+
+    var msg = transport.serializer.unserialize(msgStr) # msgStr
+    
+    echo msg
+    # if msg
+    # @ <---------------------- HERE
+
+    # quit()
+    # msgLenStr.setPosition(0)
+    # echo  "msgLenStr", repr msgLenStr
+
+
+    # var msgLen = msgLenStr.readUint32().int # cast[uint32]( msgLenStr ).int
+
+
+    # echo "msgLen ", msgLen 
+    # var msgData = await socket.recv( msgLen )
+    # echo "msgData ", msgData      
+    
 
 proc handleTcp(transport: TransportTcp, address: string, socket: AsyncSocket): Future[void] {.async.} = 
-    # Check for magic bytes, to fail fast for non msgIo clients!
-    if not transport.magicBytes.isNil:
-      let clientMagicBytes = await socket.recv( transport.magicBytes.len )
-      if clientMagicBytes != transport.magicBytes:
-        echo "incorrect magic bytes, got:", clientMagicBytes
-        socket.close
-        return
-    asyncCheck onClientConnecting(transport, address, socket)
-    
+  # Check for magic bytes, to fail fast for non msgIo clients!
+  if not transport.magicBytes.isNil:
+    let clientMagicBytes = await socket.recv( transport.magicBytes.len )
+    if clientMagicBytes != transport.magicBytes:
+      echo "incorrect magic bytes, got:", clientMagicBytes
+      socket.close
+      return
+  asyncCheck onClientConnecting(transport, address, socket)
+
+  # EventTransportMsg* = proc (msgio: MsgIoServer, msg, transport: TransportBase): Future[void] {.closure, gcsafe.}  
+
+
 
 proc serveTcp(transport: TransportTcp): Future[void] {.async.} = 
   # asyncCheck transport.tcpServer.serve(transport.port, (req: Request) => cb(req, transport) )  
@@ -112,13 +154,16 @@ proc sendTcp(transport: TransportTcp, msgio: MsgIoServer, clientId: ClientId, ev
   msg.event = event
   msg.payload = data
   msg.target = $clientId # TODO what is this exactly?
-  let msgSerialized: string = transport.serializer.serialize(msg)
-  let line = msgSerialized.toTransportTcpLine()
+  let msgSerializedOpt = transport.serializer.serialize(msg)
+  if msgSerializedOpt.isNone:
+    echo "msg could not be serialized"
+    return
+  let line = msgSerializedOpt.get().toTransportTcpLine()
   await transport.clients[clientId].socket.send($line)
 
 
 proc newTransportTcp*(msgio: MsgIoServer, serializer: SerializerBase, namespace = "default", port: int = 9001, 
-    address = "", enableSsl = false, magicBytes = "msgio"): TransportTcp =
+    address = "", enableSsl = false, magicBytes = "msgio", maxMsgLen = 64_000): TransportTcp =
   result = TransportTcp()
   result.msgio = msgio
   result.proto = "tcp"
@@ -128,6 +173,7 @@ proc newTransportTcp*(msgio: MsgIoServer, serializer: SerializerBase, namespace 
   result.namespace = namespace
   result.magicBytes = magicBytes
   result.serializer = serializer
+  result.maxMsgLen = maxMsgLen
 
   result.tcpServer = newAsyncSocket()
   result.tcpServer.setSockOpt(OptReuseAddr, true)

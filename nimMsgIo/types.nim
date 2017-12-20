@@ -73,8 +73,8 @@ type
     clientId: ClientId
     transportProtocol: string
 
-  SerializerSerialize = proc (msg: MsgBase): string
-  SerializerUnSerialize = proc (msgstr: string): MsgBase
+  SerializerSerialize = proc (msg: MsgBase): Option[string]
+  SerializerUnSerialize = proc (msgstr: string): Option[MsgBase]
   SerializerBase* = object of RootObj
     serialize*: SerializerSerialize
     unserialize*: SerializerUnSerialize

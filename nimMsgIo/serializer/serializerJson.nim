@@ -8,7 +8,7 @@
 #
 ## json serializer for transport data exchange
 import ../types
-import json
+import json, options
 
 type 
   SerializerJson* = object of SerializerBase
@@ -16,19 +16,24 @@ type
   #   serialize: proc (msg: MsgBase): string
   #   unserialize: proc (msgstr: string): MsgBase
 
-proc serialize(msg: MsgBase): string =
-  result = $ %* msg
+proc serialize(msg: MsgBase): Option[string] =
+  try:
+    result = some[string]($ %* msg)
+  except:
+    return
 
-proc unserialize(msgstr: string): MsgBase =
-  result = MsgBase()
-  let jnode = msgstr.parseJson()
-  result = jnode.to(MsgBase)
+proc unserialize(msgstr: string): Option[MsgBase] =
+  try:
+    let jnode = msgstr.parseJson()
+    result = some[MsgBase](jnode.to(MsgBase))
+  except:
+    return
   
 proc newSerializerJson*(): SerializerJson =
   result = SerializerJson()
-  result.serialize = proc (msg: MsgBase): string = 
+  result.serialize = proc (msg: MsgBase): Option[string] = 
     return serialize(msg)
-  result.unserialize = proc (msgstr: string): MsgBase = 
+  result.unserialize = proc (msgstr: string): Option[MsgBase] = 
     return unserialize(msgstr)
 
 when isMainModule:
@@ -36,7 +41,7 @@ when isMainModule:
   msg.target = "123"
   msg.event = "some enduser event here"
   msg.payload = "some enduser payload here"
-  let ser = msg.serialize()
-  var msg2 = ser.unserialize()
+  let ser = msg.serialize().get()
+  var msg2 = ser.unserialize().get()
   assert msg == msg2
   

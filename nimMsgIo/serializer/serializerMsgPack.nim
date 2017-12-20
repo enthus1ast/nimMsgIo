@@ -8,7 +8,7 @@
 #
 ## json serializer for transport data exchange
 import ../types
-import streams
+import streams, options
 import msgpack4nim
 
 type 
@@ -18,21 +18,28 @@ type
   #   unserialize: proc (msgstr: string): MsgBase
 
 
-proc serialize(msg: MsgBase): string =
+proc serialize(msg: MsgBase): Option[string] =
   var ss = newStringStream()
-  ss.pack(msg)
-  return ss.data
+  try:
+    ss.pack(msg)
+    return some[string](ss.data)
+  except:
+    return
 
-proc unserialize(msgstr: string): MsgBase =
-  result = MsgBase()
-  var ss = newStringStream(msgstr)
-  ss.unpack(result)
+proc unserialize(msgstr: string): Option[MsgBase] =
+  var msg = MsgBase()
+  try:
+    var ss = newStringStream(msgstr)
+    ss.unpack(msg)
+    return some[MsgBase](msg)
+  except:
+    return
 
 proc newSerializerMsgPack*(): SerializerMsgPack =
   result = SerializerMsgPack()
-  result.serialize = proc (msg: MsgBase): string = 
+  result.serialize = proc (msg: MsgBase): Option[string] = 
     return serialize(msg)
-  result.unserialize = proc (msgstr: string): MsgBase = 
+  result.unserialize = proc (msgstr: string): Option[MsgBase] = 
     return unserialize(msgstr)
 
 when isMainModule:

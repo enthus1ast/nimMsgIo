@@ -51,11 +51,20 @@ proc onTransportClientConnected(msgio: MsgIoServer, clientId: ClientId, transpor
 proc onTransportClientDisconnected(msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[void] {.async.} =
   # TODO should maybe onTransportClientDisconnecting
   # and should call the user supplied onTransportClientDisconneced
+  # msgio.onClient
+
+
+  ## TODO ???
+  # We must delete the client after the user callback,
+  # cause the user maybe want to use the old client information.
   msgio.clients.del(clientId)
-  # if msgio.onClientConnected.isNil:
-    # echo "server onTransportClientDisconnected is nil"
-  # else:
-    # await msgio.onClientConnected(msgio, clientId)
+  
+  
+  if msgio.onClientDisconnected.isNil:
+    echo "server onTransportClientDisconnected is nil"
+  else:
+    await msgio.onClientDisconnected(msgio, clientId, transport)
+  
 
 
 
@@ -70,6 +79,7 @@ proc newMsgIoServer*(): MsgIoServer =
   result.onTransportClientConnecting = onTransportClientConnecting # proc (msgio: MsgIoServer): Future[Option[ClientId]] = onTransportClientConnecting(msgio)
   result.onTransportClientConnected = onTransportClientConnected # proc (msgio: MsgIoServer): Future[Option[ClientId]] = onTransportClientConnecting(msgio)
   result.onTransportClientDisconnected = onTransportClientDisconnected
+
 
 
 proc disconnects*(msgio: MsgIoServer, clientId: ClientId): Future[void] {.async.} = 
@@ -139,6 +149,9 @@ when isMainModule:
     # echo "event:", msg.event
     # echo "payload:", msg.payload
     echo "----"
+  msgio.onClientDisconnected = proc (msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[void] {.async.} = 
+    echo "in user supplied onClienDisconnect"
+    await msgio.broadcast("client disconnected  event", $clientId)
   asyncCheck msgio.serve()
   # assert msgio.transports.len == 2
   runForever()

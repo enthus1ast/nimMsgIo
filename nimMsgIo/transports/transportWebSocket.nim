@@ -37,25 +37,7 @@ proc onClientConnecting(transport: TransportWs, req: Request): Future[void] {.as
       echo "(opcode: " & $f.opcode & ", data: " & $f.data.len & ")"
 
       if f.opcode == Opcode.Text:
-        # EventTransportMsg* = proc (msgio: MsgIoServer, msg, transport: TransportBase): Future[void] {.closure, gcsafe.}  
-        try:
-          let msg =  transport.serializer.unserialize( f.data )
-          # echo msg
-          msgOpt = some msg
-        except:
-          echo getCurrentExceptionMsg()
-          echo "could not unserialize message:", f.data
-          msgOpt = none MsgBase
-
-        
-        # await transport.msgio.onTransportMsg(transport.msgio, clientId, even)
-      # if f.opcode == Opcode.Text:
-      #   # waitFor req.client.sendText("thanks for the data!", false)
-      #   discard
-      # else:
-      #   # waitFor req.client.sendBinary(f.data, false)
-      #   discard
-
+        msgOpt  =  transport.serializer.unserialize( f.data )
     except:
       echo getCurrentExceptionMsg()
       break  
@@ -64,7 +46,8 @@ proc onClientConnecting(transport: TransportWs, req: Request): Future[void] {.as
       await transport.msgio.onClientMsg(transport.msgio, msgOpt.get(), transport)
     else:
       echo "the msg could not encoded or something else..."
-
+  
+        
   ## Client is gone, delete it from this transport
   transport.clients.del(clientId)
 
@@ -88,9 +71,12 @@ proc sendWebSocket(transport: TransportWs, msgio: MsgIoServer, clientId: ClientI
   msg.event = event
   msg.payload = data
   msg.target = $clientId # TODO what is this exactly?
-  let msgSerialized: string = transport.serializer.serialize(msg)
+  let msgSerializedOpt = transport.serializer.serialize(msg)
+  if msgSerializedOpt.isNone: 
+    echo "Could not serialize msg"
+    return
   try:
-    await transport.clients[clientId].sendText(msgSerialized, false)
+    await transport.clients[clientId].sendText(msgSerializedOpt.get(), false)
   except:
     echo "could not send to websocket: ", clientId
     echo getCurrentExceptionMsg()
