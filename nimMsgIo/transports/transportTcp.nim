@@ -16,7 +16,7 @@
 ## this transport uses the `net` syntax which 
 ## prefixes every "line/frame/message" with its length
 ## as an integer
-import tables, asyncnet, asyncdispatch, future, options, streams, strutils
+import tables, asyncnet, asyncdispatch, future, options, streams, strutils, net, os
 # import websocket
 import ../msgIoServer
 import ../types
@@ -31,8 +31,12 @@ type
     namespace: string
     msgio: MsgIoServer
     enableSsl: bool ## TODO
+    sslCertFile: string # enable ssl first
+    sslKeyFile: string # enable ssl first
     magicBytes: string # client has to send these directly after connection
     maxMsgLen: int 
+    when defined(ssl):
+      sslCtx: SSLContext
   ClientsTcpStorage = tuple[socket:AsyncSocket, address: string]
   ClientsTcp = TableRef[ClientId, ClientsTcpStorage ]
 
@@ -84,15 +88,14 @@ proc onClientConnecting(transport: TransportTcp, address: string, socket: AsyncS
       echo getCurrentExceptionMsg()
       break
     if buffer.len == 0: break
-    let msgStr = buffer
+    # let msgStr = buffer
 
-    msgOpt = transport.serializer.unserialize(msgStr)
+    msgOpt = transport.serializer.unserialize(buffer)
     
     if msgOpt.isSome:
       await transport.msgio.onClientMsg(transport.msgio, msgOpt.get(), transport)
     else:
       echo "the msg could not encoded or something else..."
-  
   
   ## Client is gone, delete it from this transport
   socket.close()
@@ -113,15 +116,14 @@ proc handleTcp(transport: TransportTcp, address: string, socket: AsyncSocket): F
   asyncCheck onClientConnecting(transport, address, socket)
 
 proc serveTcp(transport: TransportTcp): Future[void] {.async.} = 
-  # asyncCheck transport.tcpServer.serve(transport.port, (req: Request) => cb(req, transport) )  
-  ## Binds to address, starts listening on transport port
-  ## starts the main transport message loop
-  # echo "Transport started"
   echo "tcpTransport listens on: ", $transport.listenPort.int
   transport.tcpServer.bindAddr(Port(transport.listenPort))
   transport.tcpServer.listen()
   while true:
     let (address, socket) = await transport.tcpServer.acceptAddr()
+    when defined ssl:
+      if transport.enableSsl:
+        transport.sslCtx.wrapConnectedSocket(socket, handshakeAsServer)
     echo address
     asyncCheck transport.handleTcp(address, socket)
 
@@ -138,7 +140,7 @@ proc sendTcp(transport: TransportTcp, msgio: MsgIoServer, clientId: ClientId, ev
   await transport.clients[clientId].socket.send($line)
 
 proc newTransportTcp*(msgio: MsgIoServer, serializer: SerializerBase, namespace = "default", port: int = 9001, 
-    address = "", enableSsl = false, magicBytes = "msgio", maxMsgLen = 64_000): TransportTcp =
+    address = "", magicBytes = "msgio", maxMsgLen = 64_000, enableSsl = false, sslCertFile = "", sslKeyFile = ""): TransportTcp =
   result = TransportTcp()
   result.msgio = msgio
   result.proto = "tcp"
@@ -152,7 +154,14 @@ proc newTransportTcp*(msgio: MsgIoServer, serializer: SerializerBase, namespace 
 
   result.tcpServer = newAsyncSocket()
   result.tcpServer.setSockOpt(OptReuseAddr, true)
-
+  when defined ssl:
+    if enableSsl:
+      if sslCertFile.len == 0 and sslKeyFile.len == 0: 
+        raise newException(ValueError, "sslCertFile and sslKeyFile are required when sslEnabled")
+      if not (existsFile(sslCertFile) or (existsFile sslKeyFile)):
+        raise newException(ValueError, "sslCertFile or sslKeyFile not found!")
+      result.sslCtx = newContext(certFile = sslCertFile, keyFile = sslKeyFile)
+      result.sslCtx.wrapSocket(result.tcpServer)
   result.clients = newTable[ClientId, ClientsTcpStorage]()
   var transport = result
   result.send = proc(msgio: MsgIoServer, clientId: ClientId, event, data: string): Future[void] {.async.} = 
@@ -165,6 +174,7 @@ when isMainModule:
   import ../serializer/serializerJson
   var msgio = newMsgIoServer()
   # var transportTcp = msgio.newTransportTcp(serializer = newSerializerMsgPack(), port=9001)
-  var transportTcp = msgio.newTransportTcp(serializer = newSerializerJson(), port=9001)
+  var transportTcp = msgio.newTransportTcp(serializer = newSerializerJson(), port=9001, 
+    enableSsl = true, sslKeyFile = "../ssl/mycert.pem", sslCertFile = "../ssl/mycert.pem" )
   asyncCheck serveTcp(transportTcp)
   runForever()

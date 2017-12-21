@@ -17,4 +17,5 @@ nimMsgIo/testiWs
 nimMsgIo/typesMsg
 nimMsgIo/typesShared
 nimMsgIo/old/*
+nimMsgIo/ssl/mycert.pem
 **nimcache**

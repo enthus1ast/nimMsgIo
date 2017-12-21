@@ -136,11 +136,18 @@ when isMainModule:
   var 
     msgio = newMsgIoServer()
     transWs = msgio.newTransportWs(serializer = newSerializerJson())
-    somevar = @["foo", "baa"]
+    somevar = @["foo", "baa"] # 
 
     # transTcp = msgio.newTransportTcp(serializer = newSerializerMsgPack())
     transTcpJson = msgio.newTransportTcp(serializer = newSerializerJson())
     transTcpMsgPack = msgio.newTransportTcp(serializer = newSerializerMsgPack(), port = 9003)
+    transTcpMsgPackSsl = msgio.newTransportTcp(
+      enableSsl = true, 
+      serializer = newSerializerMsgPack(), 
+      port = 9004,
+      sslKeyFile = "ssl/mycert.pem", 
+      sslCertFile = "ssl/mycert.pem"      
+    )
   transWs.httpCallback = proc(transport: TransportBase, msgio: MsgIoServer, req: Request): Future[void] {.async.} =
       ## websocket transport can have a http callback.
       let res = """
@@ -152,6 +159,7 @@ when isMainModule:
   msgio.addTransport(transWs)
   msgio.addTransport(transTcpJson)
   msgio.addTransport(transTcpMsgPack)
+  msgio.addTransport(transTcpMsgPackSsl)
   msgio.onClientConnecting = proc (msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[Option[ClientID]] {.async.} = #{.closure, gcsafe.} =
     echo "CLIENT CONNECTING IN USER SERVER"
     return some clientId

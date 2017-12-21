@@ -6,9 +6,7 @@
 #    See the file "copying.txt", included in this
 #    distribution, for details about the copyright.
 #
-# import typesTransport
 import asyncdispatch, options
-# import typesMsgIo
 import roomLogic
 import typesMsg
 export typesMsg
@@ -17,7 +15,6 @@ export typesShared
 import tables
 export tables
 type
-
   # Transport does something:
   ActionTransportSend* = proc (msgio: MsgIoServer, clientId: ClientId, event, data: string): Future[void] {.closure, gcsafe.}
   ActionTransportServe* = proc (): Future[void] {.closure, gcsafe.}
@@ -36,7 +33,6 @@ type
   EventClientDisconnected* = EventTransportClientDisconnected
   EventClientMsg* = EventTransportMsg
 
-  # EventTransportJoinGroup* #= proc (msgio: MsgIoServer, clientId: ClientId): Future[void] {.closure, gcsafe.}  
   # EventTransportLeaveGroup*
   TransportBase* = ref object of RootObj
     proto*: string        ## the readable name of the transport
