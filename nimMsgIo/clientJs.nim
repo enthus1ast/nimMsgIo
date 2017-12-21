@@ -1,3 +1,11 @@
+#
+#
+#                      msgIo
+#        (c) Copyright 2017 David Krause
+#
+#    See the file "copying.txt", included in this
+#    distribution, for details about the copyright.
+#
 # when not defined(js):
 #   echo "this module is for the js backend!"
 #   quit()
@@ -63,7 +71,7 @@ proc send*(wic: MsgIoClient, event: cstring, data: cstring ) {.exportc.}=
   wic.ws.send(j.cstring)
 
 
-proc on*(wic: MsgIoClient, event: string, cb: proc () ) = 
+proc on*(wic: MsgIoClient, event: string, cb: proc (msg: MsgBase) ) = 
   discard
   # wic.callbacks.add()
 
@@ -73,3 +81,11 @@ when isMainModule:
     # ws.send("foo")
     wic.joinRoom("lobby")
     wic.send("event", "datapayload")
+  wic.ws.onmessage = proc (e: MessageEvent) = 
+    var j = parseJson($e.data)
+    var msg = j.to(MsgBase)
+    if msg.event == "alert":
+      # alert("foo")
+      discard
+    # if j["event"].getStr == "alert":
+    #   alert(j["payload"])

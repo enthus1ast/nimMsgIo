@@ -1,6 +1,6 @@
 #
 #
-#                   msgIo
+#                      msgIo
 #        (c) Copyright 2017 David Krause
 #
 #    See the file "copying.txt", included in this
@@ -125,7 +125,6 @@ proc leaveRoom(msgio: MsgIoServer, clientId: ClientId, roomId: RoomId) =
   ## convinient function let clientId join room.
   msgio.roomLogic.leaveRoom(clientId, roomId)
 
-
 when isMainModule:
   import strutils
   import transports/transportWebSocket
@@ -136,15 +135,20 @@ when isMainModule:
 
   var 
     msgio = newMsgIoServer()
-    transWs = msgio.newTransportWs(serializer = newSerializerJson()) #, httpCallback = )
+    transWs = msgio.newTransportWs(serializer = newSerializerJson())
+    somevar = @["foo", "baa"]
 
     # transTcp = msgio.newTransportTcp(serializer = newSerializerMsgPack())
     transTcpJson = msgio.newTransportTcp(serializer = newSerializerJson())
     transTcpMsgPack = msgio.newTransportTcp(serializer = newSerializerMsgPack(), port = 9003)
   transWs.httpCallback = proc(transport: TransportBase, msgio: MsgIoServer, req: Request): Future[void] {.async.} =
       ## websocket transport can have a http callback.
+      let res = """
+        clients: $#
+      """ % @[$msgio.clients.len]
+      echo somevar
       echo "hello from usersupplied httpCallback"
-      await req.respond(Http200, "Hello World; hello from usersupplied httpCallback")
+      await req.respond(Http200, "Hello World; hello from usersupplied httpCallback\n" & res)
   msgio.addTransport(transWs)
   msgio.addTransport(transTcpJson)
   msgio.addTransport(transTcpMsgPack)
@@ -169,15 +173,11 @@ when isMainModule:
     of "ws":
       await msgio.toRoom("ws", "msgBROWSER", msg.payload)
     else:
-      discard
-    # await msgio.broadcast(msg.event, msg.payload)
-    # echo "event:", msg.event
-    # echo "payload:", msg.payload
+      await msgio.toRoom("lobby", "msgBROWSER", msg.payload)
     echo "----"
   msgio.onClientDisconnected = proc (msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[void] {.async.} = 
     echo "in user supplied onClienDisconnect"
     await msgio.broadcast("client disconnected  event", $clientId)
   asyncCheck msgio.serve()
-  # assert msgio.transports.len == 2
   runForever()
 

@@ -1,3 +1,11 @@
+#
+#
+#                      msgIo
+#        (c) Copyright 2017 David Krause
+#
+#    See the file "copying.txt", included in this
+#    distribution, for details about the copyright.
+#
 type
   MsgType* = enum
     CLIENT_TO_GROUP
