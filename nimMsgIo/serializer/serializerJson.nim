@@ -7,7 +7,8 @@
 #    distribution, for details about the copyright.
 #
 ## json serializer for transport data exchange
-import ../types
+# import ../types
+import ../typesSerializer
 import json, options
 
 type 

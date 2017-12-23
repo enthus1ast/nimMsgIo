@@ -12,6 +12,8 @@ import typesMsg
 export typesMsg
 import typesShared
 export typesShared
+import typesSerializer
+export typesSerializer
 import tables
 export tables
 type
@@ -68,12 +70,6 @@ type
   Client* = object 
     clientId: ClientId
     transportProtocol: string
-
-  SerializerSerialize = proc (msg: MsgBase): Option[string]
-  SerializerUnSerialize = proc (msgstr: string): Option[MsgBase]
-  SerializerBase* = object of RootObj
-    serialize*: SerializerSerialize
-    unserialize*: SerializerUnSerialize
 
 proc newClient*(clientId: ClientId = -1, transportProtocol: string): Client =
   result = Client()

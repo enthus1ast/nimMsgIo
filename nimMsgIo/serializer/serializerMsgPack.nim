@@ -7,8 +7,8 @@
 #    distribution, for details about the copyright.
 #
 ## json serializer for transport data exchange
-import ../types
 import streams, options
+import ../typesSerializer
 import msgpack4nim
 
 type 
