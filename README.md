@@ -11,9 +11,9 @@ the structure of this library is as follow:
 transports/
   ## implementing the actual protocols
   ## this library is able to speek
-  transportWebSocket # transport for the websocket protocol, also implements http callbacks
+  transportWebSocket # transport for the websocket protocol, also implements http callback
   transportTcp       # transport for plain TCP (net syntax)
-  transportUdp       # transport for plain UDP
+  transportUdp       # transport for plain UDP ( !not yet done! )
 
 serializer/
   ## implements the variouse serializers every transport can use to

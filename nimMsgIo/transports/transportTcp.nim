@@ -62,35 +62,9 @@ proc onClientConnecting(transport: TransportTcp, address: string, socket: AsyncS
     var msgLen: int
     
     # read the msg len
-    try:
-      buffer = await socket.recv( sizeof(uint32) )
-    except:
-      echo getCurrentExceptionMsg()
-      break
-    if buffer.len == 0: break
-    var msgLenStr = newStringStream( buffer )
-
-    try:
-      msgLen = msgLenStr.readUint32().int
-    except:
-      echo getCurrentExceptionMsg()
-      echo "could not read int from msgLenStr"
-      break
-
-    if msgLen > transport.maxMsgLen: 
-      echo "msg to large!: ", msgLen
-      break
-
-    # read the payload message
-    try:
-      buffer = await socket.recv( msgLen )
-    except:
-      echo getCurrentExceptionMsg()
-      break
-    if buffer.len == 0: break
-    # let msgStr = buffer
-
-    msgOpt = transport.serializer.unserialize(buffer)
+    var tcpLineStrOpt = await socket.recvTransportTcpLine(transport.maxMsgLen)
+    if tcpLineStrOpt.isNone: break
+    msgOpt = transport.serializer.unserialize(tcpLineStrOpt.get())
     
     if msgOpt.isSome:
       await transport.msgio.onClientMsg(transport.msgio, msgOpt.get(), transport)

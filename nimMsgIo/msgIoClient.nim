@@ -61,6 +61,9 @@ proc send(client: MsgIoClient, group, event, data: string): Future[void] {.async
   let ser = netMsg.serialize()
   await client.transport.send(ser)
 
+# client.on "cheater":
+#   foo baa
+
 when isMainModule:
 
   # wie will ichs benutzen nummer 1

@@ -18,6 +18,6 @@ while true:
   var serOpt = ser.serialize( msg )
   var line = serOpt.get().toTransportTcpLine()
   socket.send($line)
-  sleep(1550)
+  sleep(550)
 # socket.send($ "asd".repeat(3).toTransportTcpLine())
 # socket.send($ "asd".repeat(4).toTransportTcpLine())
