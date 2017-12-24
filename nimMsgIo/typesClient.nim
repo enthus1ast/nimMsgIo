@@ -7,6 +7,7 @@ export typesSerializer
 type
   # Transport does something:
   ActionTransportConnect* = proc (client: MsgIoClient, host: string, port: int): Future[bool] {.closure, gcsafe.}
+  ActionTransportSend* = proc (client: MsgIoClient, msg: MsgBase): Future[void] {.closure, gcsafe.}
   # Middleware gets informed:
   EventTransportClientConnected* = proc (client: MsgIoClient): Future[bool] {.closure, gcsafe.}
   EventTransportClientDisconnected* = proc (client: MsgIoClient): Future[void] {.closure, gcsafe.}
@@ -22,6 +23,7 @@ type
     onDisconncted*: EventClientDisconnected
     onMessage*: EventClientMessage
     transportConnect*: ActionTransportConnect
+    transportSend*: ActionTransportSend
 
   ClientTransportBase* = ref object of RootObj
     msgIoClient*: MsgIoClient

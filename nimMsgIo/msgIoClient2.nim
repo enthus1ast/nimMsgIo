@@ -11,6 +11,13 @@ proc `transport=`(client: MsgIoClient, transport: ClientTransportBase) =
 proc connect(client: MsgIoClient, host: string, port: int): Future[bool] {.async.} =
   result = await client.transportConnect(client, host, port)
 
+proc send(client: MsgIoClient, event: string, payload: string): Future[void] {.async.} =
+  var msg = MsgBase()
+  msg.target = "ist halt irgendwas"
+  msg.event = event
+  msg.payload = payload
+  await client.transportSend(client, msg)
+
 when isMainModule:
   import transports/clientTransportTcp
   import serializer/serializerJson
@@ -35,7 +42,9 @@ when isMainModule:
 
   client.onMessage = proc (client: MsgIoClient, msg: MsgBase): Future[void] {.closure, gcsafe, async.} =
     echo $msg
-    # client.send(msg.event, "GOT MESSAGE")
+    # await sleepAsync 500
+    await client.send("event", "data")
+    # await client.transportSend(client, msg)
 
   # client.onEvent = proc(client: MsgIoClient, msg: MsgBase): Future[void] {.closure, gcsafe.} =)
   #   echo "CLIENT DISCONNECTED"

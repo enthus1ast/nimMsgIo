@@ -31,6 +31,11 @@ proc connectTcp(transport: ClientTransportTcp, host: string, port: int): Future[
   asyncCheck transport.handleTcp()
   return true
 
+proc sendTcp(transport: ClientTransportTcp, msg: MsgBase): Future[void] {.async.} =
+  var dataOpt: Option[string] = transport.serializer.serialize(msg)
+  if dataOpt.isSome:
+    await transport.socket.send($dataOpt.get().toTransportTcpLine)
+
 proc newClientTransportTcp*(client: MsgIoClient, serializer: SerializerBase): ClientTransportTcp =
   result = new ClientTransportTcp
   result.socket = newAsyncSocket()
@@ -39,3 +44,5 @@ proc newClientTransportTcp*(client: MsgIoClient, serializer: SerializerBase): Cl
   var transport = result
   client.transportConnect = proc (client: MsgIoClient, host: string, port: int): Future[bool] {.closure, gcsafe, async.} =
     return await transport.connectTcp(host, port)
+  client.transportSend = proc (client: MsgIoClient, msg: MsgBase): Future[void] {.closure, gcsafe, async.} =
+    await transport.sendTcp(msg)
