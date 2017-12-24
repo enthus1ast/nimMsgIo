@@ -14,6 +14,11 @@ proc handleTcp(transport: ClientTransportTcp): Future[void] {.async.} =
     if tcpLineOpt.isNone:
       await transport.msgIoClient.onDisconncted(transport.msgIoClient)
       break
+    var msgOpt = transport.serializer.unserialize tcpLineOpt.get()
+    if msgOpt.isNone: 
+      echo "could not unserialize msg disconnecting..."
+      break
+    await transport.msgIoClient.onMessage(transport.msgIoClient, msgOpt.get())
 
 proc connectTcp(transport: ClientTransportTcp, host: string, port: int): Future[bool] {.async.} =
   try:

@@ -33,8 +33,8 @@ when isMainModule:
     echo "CLIENT DISCONNECTED"
     return
 
-  # client.onMessage = proc (client: MsgIoClient, msg: MsgBase): Future[void] {.closure, gcsafe.} =
-  #   discard
+  client.onMessage = proc (client: MsgIoClient, msg: MsgBase): Future[void] {.closure, gcsafe, async.} =
+    echo $msg
     # client.send(msg.event, "GOT MESSAGE")
 
   # client.onEvent = proc(client: MsgIoClient, msg: MsgBase): Future[void] {.closure, gcsafe.} =)
