@@ -1,4 +1,7 @@
-import asyncdispatch
+when not defined(js):
+  import asyncdispatch
+else:
+  import asyncjs
 import typesClient
 
 proc newMsgIoClient(): MsgIoClient =
@@ -23,9 +26,7 @@ when isMainModule:
   import serializer/serializerJson
   import serializer/serializerMsgPack
 
-  var 
-    client: MsgIoClient
-    msg: MsgBase
+  var client: MsgIoClient
 
   client = newMsgIoClient()
   client.transport = client.newClientTransportTcp(
@@ -42,7 +43,7 @@ when isMainModule:
 
   client.onMessage = proc (client: MsgIoClient, msg: MsgBase): Future[void] {.closure, gcsafe, async.} =
     echo $msg
-    # await sleepAsync 500
+    await sleepAsync 500
     await client.send("event", "data")
     # await client.transportSend(client, msg)
 

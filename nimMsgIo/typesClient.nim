@@ -1,4 +1,7 @@
-import asyncdispatch
+when not defined(js):
+  import asyncdispatch
+else:
+  import asyncjs
 import typesMsg
 export typesMsg
 import typesSerializer
