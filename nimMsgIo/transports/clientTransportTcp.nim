@@ -1,19 +1,36 @@
-import asyncnet, asyncdispatch
+import asyncnet, asyncdispatch, options
 import ../typesSerializer
 import ../typesClient
+import typesTransportTcp
+
 
 type
   ClientTransportTcp* = ref object of ClientTransportBase
-    client*: AsyncSocket
+    socket*: AsyncSocket
 
-proc connectTcp(client: ClientTransportTcp, host: string, port: int): Future[bool] {.async.} =
-  discard
+proc handleTcp(transport: ClientTransportTcp): Future[void] {.async.} =
+  while true:
+    var tcpLineOpt = await transport.socket.recvTransportTcpLine()
+    if tcpLineOpt.isNone:
+      await transport.msgIoClient.onDisconncted(transport.msgIoClient)
+      break
+
+proc connectTcp(transport: ClientTransportTcp, host: string, port: int): Future[bool] {.async.} =
+  try:
+    await transport.socket.connect(host, port.Port)
+  except:
+    echo getCurrentExceptionMsg()
+    return false
+  await transport.socket.send("msgio")
+  asyncCheck transport.msgIoClient.onConnected(transport.msgIoClient)
+  asyncCheck transport.handleTcp()
+  return true
 
 proc newClientTransportTcp*(client: MsgIoClient, serializer: SerializerBase): ClientTransportTcp =
   result = new ClientTransportTcp
-  result.client = newAsyncSocket()
+  result.socket = newAsyncSocket()
   result.msgIoClient = client
   result.serializer = serializer
   var transport = result
-  client.transportConnect = proc (client: MsgIoClient, host: string, port: int): Future[bool] {.closure, gcsafe.} =
-    transport.connectTcp(host, port)
+  client.transportConnect = proc (client: MsgIoClient, host: string, port: int): Future[bool] {.closure, gcsafe, async.} =
+    return await transport.connectTcp(host, port)
