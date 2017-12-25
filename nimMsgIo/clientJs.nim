@@ -83,6 +83,7 @@ when isMainModule:
     wic.send("event", "datapayload")
   wic.ws.onmessage = proc (e: MessageEvent) = 
     var j = parseJson($e.data)
+    # wic.send("event", "data")
     var msg = j.to(MsgBase)
     if msg.event == "alert":
       # alert("foo")
