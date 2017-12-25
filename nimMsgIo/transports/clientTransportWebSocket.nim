@@ -37,18 +37,12 @@ when defined(js):
   proc send*(w: WebSocket; data: string): Future[void] {.async.} =
     w.send(data.cstring)
 
-  # The following connectLowLevel function is only needed,
-  # because the newPromise function doesnt support something like newPromise[void],
-  # therfore we return an bool, discarding and wrapping it in the connect function
-  proc connectLowLevel*(w: var WebSocket; host: string, port: Port): Future[bool] {.async.} =
-    w = newWebSocket("ws://" & host & ":" & $port, "default")
-    return await newPromise[bool](proc(resolve: proc(response: bool)) =
-      w.onopen = proc(e: MessageEvent) =
-        resolve(true)
-    )
   proc connect*(w: var WebSocket; host: string, port: Port): Future[void] {.async.} =
-    discard await w.connectLowLevel(host, port)
-
+    w = newWebSocket("ws://" & host & ":" & $port, "default")
+    await newPromise[void](proc(resolve: proc(response: void)) =
+      w.onopen = proc(e: MessageEvent) =
+        resolve()
+    )
 
 proc connectWebSocket(transport: ClientTransportWebSocket, host: string, port: int): Future[bool] {.async.} =
   try:
