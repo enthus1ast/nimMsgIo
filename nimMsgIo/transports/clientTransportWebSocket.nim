@@ -39,7 +39,7 @@ when defined(js):
 
   proc connect*(w: var WebSocket; host: string, port: Port): Future[void] {.async.} =
     w = newWebSocket("ws://" & host & ":" & $port, "default")
-    await newPromise[void](proc(resolve: proc(response: void)) =
+    await newPromise[void](proc(resolve: proc()) =
       w.onopen = proc(e: MessageEvent) =
         resolve()
     )
