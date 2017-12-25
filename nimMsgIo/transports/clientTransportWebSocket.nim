@@ -23,37 +23,30 @@ type
 # #       await transport.msgIoClient.onDisconncted(transport.msgIoClient)
 # #       break
 # #     var msgOpt = transport.serializer.unserialize tcpLineOpt.get()
-# #     if msgOpt.isNone: 
+# #     if msgOpt.isNone:
 # #       echo "could not unserialize msg disconnecting..."
 # #       break
 # #     await transport.msgIoClient.onMessage(transport.msgIoClient, msgOpt.get())
 
 when defined(js):
+  import options
+
   type
     Port = int
 
   proc send*(w: WebSocket; data: string): Future[void] {.async.} =
     w.send(data.cstring)
 
-
-  # proc newPromise*(handler: proc(resolve: proc())): Future[void] {.importcpp: "(new Promise(#))".}
-
-  proc connect*(w: var WebSocket; host: string, port: Port): Future[bool] {.async.} =
+  proc connect*(w: var WebSocket; host: string, port: Port): Future[void] {.async.} =
     w = newWebSocket("ws://" & host & ":" & $port, "default")
-    return await newPromise[bool](proc(resolve: proc(response: bool)) =
+    await newPromise[void](proc(resolve: proc()) =
       w.onopen = proc(e: MessageEvent) =
-        resolve(true)
+        resolve()
     )
-    # w.send(data.cstring)
-
 
 proc connectWebSocket(transport: ClientTransportWebSocket, host: string, port: int): Future[bool] {.async.} =
   try:
-    # await transport.socket.connect(host, port.Port)
-    when not defined(js): # TODO: newPromise[void] doesn't work
-      await transport.socket.connect(host, port.Port)
-    else:
-      discard await transport.socket.connect(host, port.Port)
+    await transport.socket.connect(host, port.Port)
   except:
     echo getCurrentExceptionMsg()
     return false
