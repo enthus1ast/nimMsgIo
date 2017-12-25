@@ -9,7 +9,6 @@ proc newMsgIoClient(): MsgIoClient =
 
 proc `transport=`(client: MsgIoClient, transport: ClientTransportBase) =
   client.transport = transport
-  # result.transport = transport
 
 proc connect(client: MsgIoClient, host: string, port: int): Future[bool] {.async.} =
   result = await client.transportConnect(client, host, port)
@@ -32,7 +31,7 @@ when isMainModule:
   client.transport = client.newClientTransportTcp(
     serializer = newSerializerJson()
   )
-  
+
   client.onConnected = proc (client: MsgIoClient): Future[void] {.closure, gcsafe, async.} =
     echo "CLIENT CONNECTED"
     return
@@ -52,6 +51,6 @@ when isMainModule:
 
   echo waitFor client.connect("127.0.0.1", 9001) # Same as client.onConnect Callback
   # msg = await client.send("event", "data")
-  
+
   runForever()
   # echo result.payload
