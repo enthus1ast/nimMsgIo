@@ -10,7 +10,7 @@
 ## for the udp protocol
 ## 
 ##
-import tables, net, asyncdispatch, future, options, 
+import tables, net, asyncnet, asyncdispatch, future, options, 
   streams, strutils, nativesockets, sets
 # import websocket
 import ../msgIoServer
@@ -22,7 +22,7 @@ type
   TransportUdp* = ref object of TransportBase
     clients: ClientsUdp
     clientsAddresses: Table[(string, Port), ClientId] #if not (address, port) in transports.clientsAddress:
-    udpServer: Socket
+    udpServer: AsyncSocket
     listenAddress: string
     listenPort: Port
     namespace: string
@@ -40,7 +40,7 @@ proc onClientConnecting(transport: TransportUdp, address: string, socket: Socket
     clientId: ClientId
   if clientIdOpt.isNone: 
     echo "ServerProgrammer gave the transport no ClientId, so we disconnect the fresh user..."
-    socket.close()
+    # socket.close()
     return
   clientId = clientIdOpt.get()
   var clientStorage: ClientsUdpStorage
@@ -136,13 +136,13 @@ proc serveUdp(transport: TransportUdp): Future[void] {.async.} =
       clientIdOpt = await transport.msgio.onTransportClientConnecting(transport.msgio, transport)
       if clientIdOpt.isSome:
         transport.clientsAddresses.add( (address, port), clientIdOpt.get())
+        # EventTransportClientConnected* = proc (msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[void] {.closure, gcsafe.}  
+        await transport.msgio.onTransportClientConnected(transport.msgio, clientIdOpt.get(), transport)
     else:
       echo "old connection"
       # if transport.clientsAddresses.contains()
       
-    
-
-    await sleepAsync(50) # to let other tasks run # TODO
+    await sleepAsync(500) # to let other tasks run # TODO
 
     # let (address, socket) = await transport.udpServer. #.acceptAddr()
     # echo address

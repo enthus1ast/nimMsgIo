@@ -13,58 +13,105 @@ import sets
 import typesRoomLogic
 export typesRoomLogic
 
+# type
+
+  # NameSpace = object
+  #   name: string
+  #   roomLogic: RoomLogic
+  # NameSpaces = TableRef[string, NameSpace]
+
+const DEFAULT_NAMESPACE*: NameSpaceIdent = "default"
+
 proc newClients*(): Clients =
   result = initSet[ClientId]()
 
 proc newRooms*(): Rooms =
   result = newTable[RoomId, Room]()
   
-proc newRoomLogic*(namespace: NameSpace = "default"): RoomLogic =
+proc newNamespace(nameSpaceIdent: NameSpaceIdent): NameSpace = 
+  result = NameSpace()
+  result.nameSpaceIdent = nameSpaceIdent
+  result.rooms = newRooms()
+  # result.roomLogic = newRoomLogic()
+
+proc newNamespaces(): NameSpaces = 
+  result = newTable[string, NameSpace]()
+
+proc registerNamespace(roomLogic: RoomLogic, nameSpace: NameSpaceIdent) =
+  roomLogic.nameSpaces.add(nameSpace, newNamespace(nameSpace))
+
+
+proc newRoomLogic*(namespaces: seq[NameSpaceIdent] = @[DEFAULT_NAMESPACE]): RoomLogic =
   randomize()
   result = RoomLogic()
-  result.namespace = namespace
+  # result.nameSpaceIdent = nameSpaceIdent
   result.clients = newClients()
-  result.rooms = newRooms()
+  result.namespaces = newNamespaces()
+  for nsp in namespaces:
+    result.registerNamespace nsp
 
 proc newRoom*(roomId: RoomId): Room = 
   result = Room()
   result.roomId = roomId
   result.clients = newClients()
 
-proc joinRoom*(roomLogic: RoomLogic, clientId: ClientId, roomId: RoomId) =
+template testNamespace() {.dirty.} = 
+  if not roomLogic.nameSpaces.contains nameSpace:
+    echo "nameSpace unknown!:", namespace
+    return   
+
+template testClient() {.dirty.} = 
+  if not roomLogic.clients.contains clientId:
+    echo "connect client first!:", clientId
+    return
+
+template varNsp() {.dirty.} = 
+  var nsp = roomLogic.nameSpaces[namespace]     
+
+proc getNsp*(roomLogic: RoomLogic, namespace: NameSpaceIdent = DEFAULT_NAMESPACE): NameSpace = 
+  varNsp
+  return nsp
+
+proc joinRoom*(roomLogic: RoomLogic, clientId: ClientId, roomId: RoomId, namespace = DEFAULT_NAMESPACE) =
   ## let client join the given room
   ## if room does not exist create it.
-  if not roomLogic.clients.contains clientId:
-    echo "connect client first!:", clientId
-    return
-  if not roomLogic.rooms.hasKey(roomId):
-    roomLogic.rooms[roomId] = newRoom(roomId)
-  roomLogic.rooms[roomId].clients.incl(clientId)
+  testNamespace 
+  testClient
+  var nsp = roomLogic.nameSpaces[namespace]
+  if not nsp.rooms.hasKey(roomId):
+    nsp.rooms[roomId] = newRoom(roomId)
+  nsp.rooms[roomId].clients.incl(clientId)
 
-proc leaveRoom*(roomLogic: RoomLogic, clientId: ClientId, roomId: RoomId) = 
+proc leaveRoom*(roomLogic: RoomLogic, clientId: ClientId, roomId: RoomId, namespace = DEFAULT_NAMESPACE) = 
   ## let client part from the given room
   ## if room is empty afterwards remove it
-  if not roomLogic.clients.contains clientId:
-    echo "connect client first!:", clientId
-    return  
-  if not roomLogic.rooms.hasKey(roomId):
+  testNamespace 
+  testClient  
+  varnsp  
+  if not nsp.rooms.hasKey(roomId):
     return
-  roomLogic.rooms[roomId].clients.excl(clientId)
-  if roomLogic.rooms[roomId].clients.len == 0:
+  nsp.rooms[roomId].clients.excl(clientId)
+  if nsp.rooms[roomId].clients.len == 0:
     # if room empty remove close room
-    roomLogic.rooms.del(roomId)
+    nsp.rooms.del(roomId)
 
-proc leaveAllRooms*(roomLogic: RoomLogic, clientId: ClientId) = 
-    ## clients leaves all rooms it is connected to.
-    for room in roomLogic.rooms.values:
-      if room.clients.contains(clientId):
-        roomLogic.leaveRoom(clientId, room.roomId) # room.del(client.clientId)
+proc leaveAllRooms*(roomLogic: RoomLogic, clientId: ClientId, namespace = DEFAULT_NAMESPACE) = 
+  ## clients leaves all rooms it is connected to.
+  testNamespace 
+  testClient  
+  varnsp   
+  for room in nsp.rooms.values:
+    if room.clients.contains(clientId):
+      roomLogic.leaveRoom(clientId, room.roomId) # room.del(client.clientId)
   
-proc getParticipatingClients*(roomLogic: RoomLogic, clientId: ClientId): HashSet[ClientId] =
+proc getParticipatingClients*(roomLogic: RoomLogic, clientId: ClientId, namespace = DEFAULT_NAMESPACE): HashSet[ClientId] =
   ## returns a set with all clientId's the given clientId is in contact with
+  testNamespace 
+  testClient  
+  varnsp    
   result = initSet[ClientId]()
-  for room in roomLogic.rooms.values:
-    echo room
+  for room in nsp.rooms.values:
+    # echo room
     if room.clients.contains clientId:
       for roomParticipant in room.clients:
         if clientId != roomParticipant: # filter out ourselv
@@ -81,17 +128,18 @@ proc genClientId*(roomLogic: RoomLogic): ClientId =
     if roomLogic.clientIdUsed(result): continue
     else: break
 
-proc connects*(roomLogic: RoomLogic, clientId: ClientId): bool = 
+proc connects*(roomLogic: RoomLogic, clientId: ClientId, namespace = DEFAULT_NAMESPACE): bool = 
   ## connects a client to the underlying logic
   if roomLogic.clientIdUsed(clientId): return false
   roomLogic.clients.incl(clientId)
   return true
 
-proc disconnects*(roomLogic: RoomLogic, clientId: ClientId) =
+proc disconnects*(roomLogic: RoomLogic, clientId: ClientId, namespace = DEFAULT_NAMESPACE) =
   ## disconnects a client from the underlying logic
   if roomLogic.clientIdUsed(clientId):
     roomLogic.leaveAllRooms(clientId)
     roomLogic.clients.excl(clientId)
+
 
 when isMainModule:
   randomize()
@@ -108,26 +156,26 @@ when isMainModule:
     assert tstId != -1
     assert true == roomLogic.connects(tstId)
     roomLogic.joinRoom(tstId, "lobby")
-    assert roomLogic.rooms.len() == 1
-    assert roomLogic.rooms["lobby"].clients.len() == 1
+    assert roomLogic.namespaces["default"].rooms.len() == 1
+    assert roomLogic.namespaces["default"].rooms["lobby"].clients.len() == 1
     
     roomLogic.leaveRoom(tstId, "lobby")
     roomLogic.leaveRoom(tstId, "lobby") # leave again
-    assert roomLogic.rooms.len() == 0
+    assert roomLogic.namespaces["default"].rooms.len() == 0
 
     roomLogic.joinRoom(tstId, "tst")
     roomLogic.joinRoom(tstId, "tst2")
-    assert roomLogic.rooms.len() == 2
+    assert roomLogic.namespaces["default"].rooms.len() == 2
     roomLogic.leaveAllRooms(tstId)
-    assert roomLogic.rooms.len() == 0
+    assert roomLogic.namespaces["default"].rooms.len() == 0
 
   block:
     var roomLogic = newRoomLogic()
     assert true == roomLogic.connects tstId1
     roomLogic.joinRoom(tstId1, "lobby")
-    assert roomLogic.rooms.hasKey("lobby")
+    assert roomLogic.namespaces["default"].rooms.hasKey("lobby")
     roomLogic.disconnects(tstId1)
-    assert false == roomLogic.rooms.hasKey("lobby")
+    assert false == roomLogic.namespaces["default"].rooms.hasKey("lobby")
 
   block:
     var roomLogic = newRoomLogic()
@@ -138,8 +186,8 @@ when isMainModule:
     
     roomLogic.joinRoom(tstId1, "lobby")
     roomLogic.joinRoom(tstId2, "lobby")
-    assert true == roomLogic.rooms["lobby"].clients.contains(tstId1)
-    assert true == roomLogic.rooms["lobby"].clients.contains(tstId2)
+    assert true == roomLogic.namespaces["default"].rooms["lobby"].clients.contains(tstId1)
+    assert true == roomLogic.namespaces["default"].rooms["lobby"].clients.contains(tstId2)
 
     let peers = roomLogic.getParticipatingClients(tstId1)
     assert true == peers.contains(tstId2)

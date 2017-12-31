@@ -12,7 +12,7 @@ import typesShared
 export typesShared
  
 type # Both
-  NameSpace* = string # "mandant" rooms with same name could exists on multiple NameSpaces
+  NameSpaceIdent* = string # "mandant" rooms with same name could exists on multiple NameSpaces
   RoomId* = string
 
 # type NetworkAbstraction* =
@@ -33,6 +33,11 @@ type # Server
     clients*: Clients # Clients # all joined clients 
   Rooms* = TableRef[RoomId, Room]
   RoomLogic* = ref object
-    namespace*: NameSpace # the namespace this server is responsible for
+    # nameSpaceIdent*: NameSpaceIdent # the namespace this server is responsible for
     clients*: Clients # all connected clients
+    nameSpaces*: NameSpaces # all created namespaces
+  NameSpace* = object
+    nameSpaceIdent*: NameSpaceIdent
     rooms*: Rooms # all created rooms.
+  NameSpaces* = TableRef[NameSpaceIdent, NameSpace]
+

@@ -74,7 +74,7 @@ proc newMsgIoServer*(): MsgIoServer =
   result.roomLogic = newRoomLogic()
   result.clients = newTable[ClientId, TransportBase]()
   result.onTransportClientConnecting = onTransportClientConnecting # proc (msgio: MsgIoServer): Future[Option[ClientId]] = onTransportClientConnecting(msgio)
-  result.onTransportClientConnected = onTransportClientConnected # proc (msgio: MsgIoServer): Future[Option[ClientId]] = onTransportClientConnecting(msgio)
+  # result.onTransportClientConnected = onTransportClientConnected # proc (msgio: MsgIoServer): Future[Option[ClientId]] = onTransportClientConnecting(msgio)
   result.onTransportClientDisconnected = onTransportClientDisconnected
 
 proc disconnects*(msgio: MsgIoServer, clientId: ClientId): Future[void] {.async.} = 
@@ -103,18 +103,22 @@ proc pingClients(msgio: MsgIoServer): Future[void] {.async.} =
       else:
         echo "ping:", result, " " ,clientId 
       
-proc send(msgio: MsgIoServer, targetClient: ClientId, event, data: string): Future[void] =
+proc send(msgio: MsgIoServer, targetClient: ClientId, event, data: string, namespace = DEFAULT_NAMESPACE): Future[void] =
+  # TODO transport send needs namespace
   return msgio.clients[targetClient].send(msgio, targetClient, event, data)
 
-proc broadcast(msgio: MsgIoServer, event, data: string): Future[void] {.async.} =
+proc broadcast(msgio: MsgIoServer, event, data: string, namespace = DEFAULT_NAMESPACE): Future[void] {.async.} =
   ## sends to every connected client on this server
+  # TODO transport send needs namespace
   for clientId, transport in msgio.clients.pairs:
     await transport.send(msgio, clientId, event, data)
 
-proc toRoom(msgio: MsgIoServer, roomId: RoomId, event, data: string): Future[void] {.async.} =
+proc toRoom(msgio: MsgIoServer, roomId: RoomId, event, data: string, namespace = DEFAULT_NAMESPACE): Future[void] {.async.} =
   ## sends to a given room
-  if not msgio.roomLogic.rooms.hasKey(roomId): return
-  for clientInRoom in msgio.roomLogic.rooms[roomId].clients.items:
+  # TODO transport send needs namespace
+  var nsp = msgio.roomLogic.getNsp(namespace)
+  if not nsp.rooms.hasKey(roomId): return
+  for clientInRoom in nsp.rooms[roomId].clients.items:
     await msgio.clients[clientInRoom].send(msgio, clientInRoom, event, data) 
 
 proc joinRoom(msgio: MsgIoServer, clientId: ClientId, roomId: RoomId) =
@@ -129,12 +133,15 @@ when isMainModule:
   import strutils
   import transports/transportWebSocket
   import transports/transportTcp
+  # import transports/transportUdp
   import serializer/serializerJson
   import serializer/serializerMsgPack
   import asynchttpserver
 
   var 
     msgio = newMsgIoServer()
+    # msgio.registerNamespace("foobaa")
+    # var foobaa = msgio.getNamespace("foobaa")
     transWs = msgio.newTransportWs(serializer = newSerializerJson())
     somevar = @["foo", "baa"] # 
 
@@ -148,6 +155,9 @@ when isMainModule:
       sslKeyFile = "ssl/mycert.pem", 
       sslCertFile = "ssl/mycert.pem"      
     )
+
+    # {event: "foo", payload: "payload", target: "target" }
+    # transUdp = msgio.newTransportUdp(serializer = newSerializerJson(), port = 9005)
   transWs.httpCallback = proc(transport: TransportBase, msgio: MsgIoServer, req: Request): Future[void] {.async.} =
       ## websocket transport can have a http callback.
       let res = """
@@ -160,6 +170,7 @@ when isMainModule:
   msgio.addTransport(transTcpJson)
   msgio.addTransport(transTcpMsgPack)
   msgio.addTransport(transTcpMsgPackSsl)
+  # msgio.addTransport(transUdp)
   msgio.onClientConnecting = proc (msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[Option[ClientID]] {.async.} = #{.closure, gcsafe.} =
     echo "CLIENT CONNECTING IN USER SERVER"
     return some clientId
@@ -171,7 +182,7 @@ when isMainModule:
     await msgio.broadcast("helloWORLD", "USER: $# connected to this server!" % [$clientId])
     msgio.joinRoom(clientId, "lobby")
     msgio.joinRoom(clientId, transport.proto)
-    echo msgio.roomLogic.rooms
+    echo msgio.roomLogic.getNsp().rooms
   msgio.onClientMsg = proc (msgio: MsgIoServer, msg: MsgBase, transport: TransportBase): Future[void] {.async.} = 
     echo "in user supplied onClientMsg"
     echo msg
