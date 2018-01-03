@@ -67,7 +67,7 @@ proc onClientConnecting(transport: TransportTcp, address: string, socket: AsyncS
     msgOpt = transport.serializer.unserialize(tcpLineStrOpt.get())
     
     if msgOpt.isSome:
-      await transport.msgio.onClientMsg(transport.msgio, msgOpt.get(), transport)
+      await transport.msgio.onClientMsg(transport.msgio, msgOpt.get(), clientId, transport)
     else:
       echo "the msg could not encoded or something else..."
   

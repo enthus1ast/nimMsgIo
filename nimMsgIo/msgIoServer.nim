@@ -74,7 +74,7 @@ proc newMsgIoServer*(): MsgIoServer =
   result.roomLogic = newRoomLogic()
   result.clients = newTable[ClientId, TransportBase]()
   result.onTransportClientConnecting = onTransportClientConnecting # proc (msgio: MsgIoServer): Future[Option[ClientId]] = onTransportClientConnecting(msgio)
-  # result.onTransportClientConnected = onTransportClientConnected # proc (msgio: MsgIoServer): Future[Option[ClientId]] = onTransportClientConnecting(msgio)
+  result.onTransportClientConnected = onTransportClientConnected # proc (msgio: MsgIoServer): Future[Option[ClientId]] = onTransportClientConnecting(msgio)
   result.onTransportClientDisconnected = onTransportClientDisconnected
 
 proc disconnects*(msgio: MsgIoServer, clientId: ClientId): Future[void] {.async.} = 
@@ -103,17 +103,17 @@ proc pingClients(msgio: MsgIoServer): Future[void] {.async.} =
       else:
         echo "ping:", result, " " ,clientId 
       
-proc send(msgio: MsgIoServer, targetClient: ClientId, event, data: string, namespace = DEFAULT_NAMESPACE): Future[void] =
+proc send*(msgio: MsgIoServer, targetClient: ClientId, event, data: string, namespace = DEFAULT_NAMESPACE): Future[void] =
   # TODO transport send needs namespace
   return msgio.clients[targetClient].send(msgio, targetClient, event, data)
 
-proc broadcast(msgio: MsgIoServer, event, data: string, namespace = DEFAULT_NAMESPACE): Future[void] {.async.} =
+proc broadcast*(msgio: MsgIoServer, event, data: string, namespace = DEFAULT_NAMESPACE): Future[void] {.async.} =
   ## sends to every connected client on this server
   # TODO transport send needs namespace
   for clientId, transport in msgio.clients.pairs:
     await transport.send(msgio, clientId, event, data)
 
-proc toRoom(msgio: MsgIoServer, roomId: RoomId, event, data: string, namespace = DEFAULT_NAMESPACE): Future[void] {.async.} =
+proc toRoom*(msgio: MsgIoServer, roomId: RoomId, event, data: string, namespace = DEFAULT_NAMESPACE): Future[void] {.async.} =
   ## sends to a given room
   # TODO transport send needs namespace
   var nsp = msgio.roomLogic.getNsp(namespace)
@@ -121,11 +121,11 @@ proc toRoom(msgio: MsgIoServer, roomId: RoomId, event, data: string, namespace =
   for clientInRoom in nsp.rooms[roomId].clients.items:
     await msgio.clients[clientInRoom].send(msgio, clientInRoom, event, data) 
 
-proc joinRoom(msgio: MsgIoServer, clientId: ClientId, roomId: RoomId) =
+proc joinRoom*(msgio: MsgIoServer, clientId: ClientId, roomId: RoomId) =
   ## convinient function let clientId join room.
   msgio.roomLogic.joinRoom(clientId, roomId)
 
-proc leaveRoom(msgio: MsgIoServer, clientId: ClientId, roomId: RoomId) =
+proc leaveRoom*(msgio: MsgIoServer, clientId: ClientId, roomId: RoomId) =
   ## convinient function let clientId join room.
   msgio.roomLogic.leaveRoom(clientId, roomId)
 
@@ -183,8 +183,9 @@ when isMainModule:
     msgio.joinRoom(clientId, "lobby")
     msgio.joinRoom(clientId, transport.proto)
     echo msgio.roomLogic.getNsp().rooms
-  msgio.onClientMsg = proc (msgio: MsgIoServer, msg: MsgBase, transport: TransportBase): Future[void] {.async.} = 
+  msgio.onClientMsg = proc (msgio: MsgIoServer, msg: MsgBase, clientId: ClientId, transport: TransportBase): Future[void] {.async.} = 
     echo "in user supplied onClientMsg"
+    echo "MESSAGE FROM: ", clientId
     echo msg
     case msg.event
     of "tcp":

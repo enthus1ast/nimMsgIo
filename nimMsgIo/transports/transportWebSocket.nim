@@ -34,7 +34,9 @@ proc onClientConnecting(transport: TransportWs, req: Request): Future[void] {.as
     return
   clientId = clientIdOpt.get()
   transport.clients.add(clientId, req.client)
-
+  # echo repr clientId
+  # echo repr transport
+  assert transport.msgio.onTransportClientConnected.isNil == false
   await transport.msgio.onTransportClientConnected(transport.msgio, clientId, transport)
 
   ## transport main loop
@@ -51,7 +53,7 @@ proc onClientConnecting(transport: TransportWs, req: Request): Future[void] {.as
       break  
 
     if msgOpt.isSome:
-      await transport.msgio.onClientMsg(transport.msgio, msgOpt.get(), transport)
+      await transport.msgio.onClientMsg(transport.msgio, msgOpt.get(), clientId, transport)
     else:
       echo "the msg could not encoded or something else..."
   
