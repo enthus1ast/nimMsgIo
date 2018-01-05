@@ -1,4 +1,4 @@
-nimMsgIo
+# nimMsgIo
 
 1. a modular, multi protocol, room based, message distribution server.
 2. variouse clients (native, browser) for speaking agains the msgIo server.
@@ -7,6 +7,8 @@ Let clients join rooms and let them share messages between those rooms.
 
 
 the structure of this library is as follow:
+
+```
 
 transports/
   ## implementing the actual protocols
@@ -27,6 +29,7 @@ types*
 
 examples/
   ## server and client examples
+```
 
 # Join rooms
 Clients can be grouped in "rooms". Every client can participate in multiple rooms. 
@@ -38,7 +41,15 @@ will then relay all messages send to this room to all participating clients.
 
 
 # Send to clients
-Clients can send "directly" to another client. For this the sending client
-must somehow know the other clients id. 
-The programmer must exchange the other user client id in their protocol.
-msgio has no build in concept of exchangeing clients.
+Clients can NOT send "directly" to other clients.
+The server programmer have to provide code to distribute a request
+
+an example would be
+```nim
+await msgio.send(clientId, "event", "data")
+await msgio.broadcast("event", "my message")
+await msgio.toRoom("lobby", "some_event", msg.payload, namespace = "chat")
+```
+- send sends directly to a user id
+- a broadcast is distributed to all connected clients. This does not respect the namespace!
+- toRoom can sends a message to 
