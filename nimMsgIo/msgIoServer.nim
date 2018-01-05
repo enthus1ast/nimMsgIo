@@ -77,12 +77,15 @@ proc newMsgIoServer*(): MsgIoServer =
   result.onTransportClientConnected = onTransportClientConnected # proc (msgio: MsgIoServer): Future[Option[ClientId]] = onTransportClientConnecting(msgio)
   result.onTransportClientDisconnected = onTransportClientDisconnected
 
-proc disconnects*(msgio: MsgIoServer, clientId: ClientId): Future[void] {.async.} = 
+proc disconnects*(msgio: MsgIoServer, clientId: ClientId) = 
     ## TODO WHERE TO INFORM ALL OTHER PARTICIPATING CLIENTS ABOUT THIS DISCONNECT?
     ## disconnects a client from the msgIoServer.
     ## client leaves all rooms
     msgio.roomLogic.disconnects(clientId)
-    await msgio.clients[clientId].disconnects(clientId)
+    if not msgio.clients.hasKey clientId:
+      echo "msgIoServer: disconnect unknown client:", clientId
+      return
+    msgio.clients[clientId].disconnects(clientId)
 
 proc serve*(msgio: MsgIoServer): Future[void] {.async.} =
   for transport in msgio.transports:
@@ -99,7 +102,7 @@ proc pingClients(msgio: MsgIoServer): Future[void] {.async.} =
       let pingResult = await transport.ping(clientId)
       if pingResult == false:
         # client was unable to fullfill the transports ping
-        await msgio.disconnects(clientId)
+        msgio.disconnects(clientId)
       else:
         echo "ping:", pingResult, " " ,clientId 
       
@@ -128,6 +131,11 @@ proc joinRoom*(msgio: MsgIoServer, clientId: ClientId, roomId: RoomId, namespace
 proc leaveRoom*(msgio: MsgIoServer, clientId: ClientId, roomId: RoomId, namespace = DEFAULT_NAMESPACE) =
   ## convinient function let clientId join room.
   msgio.roomLogic.leaveRoom(clientId, roomId, namespace)
+
+proc recvMsg*(msgio: MsgIoServer, clientId: ClientId): Future[Option[MsgBase]] {.async.} =
+  ## receives a message from the given clientId
+  let transport = msgio.clients[clientId]
+  return await transport.recvMsg(clientId)
 
 when isMainModule:
   import strutils

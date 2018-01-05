@@ -21,7 +21,8 @@ type
   ActionTransportSend* = proc (msgio: MsgIoServer, clientId: ClientId, event, data: string): Future[void] {.closure, gcsafe.}
   ActionTransportServe* = proc (): Future[void] {.closure, gcsafe.}
   ActionTransportPing* = proc (clientId: ClientId): Future[bool] {.closure, gcsafe.}
-  ActionTransportDisconnects* = proc (clientId: ClientId): Future[void] {.closure, gcsafe.}
+  ActionTransportDisconnects* = proc (clientId: ClientId) {.closure, gcsafe.}
+  ActionTransportRecvMsg* = proc (clientId: ClientId): Future[Option[MsgBase]] {.closure, gcsafe.}
   
   # Middleware gets informed:
   EventTransportClientConnecting* = proc (msgio: MsgIoServer, transport: TransportBase): Future[Option[ClientId]] {.closure, gcsafe.}  
@@ -41,6 +42,7 @@ type
     send*: ActionTransportSend  ## transports sends a msg
     serve*: ActionTransportServe  ## transports sends a msg
     ping*: ActionTransportPing ## transport pings a client
+    recvMsg*: ActionTransportRecvMsg ## receives a message from the client
     disconnects*: ActionTransportDisconnects ## transport disconnects a client
     clientConnecting*: EventTransportClientConnecting
     clientDisconnected*: EventTransportClientDisconnected

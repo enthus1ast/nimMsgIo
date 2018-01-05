@@ -24,16 +24,30 @@ type
     httpCallback*: HttpCallback
   ClientsWs = TableRef[ClientId, AsyncSocket]
 
-proc recvMsg(transport: TransportWs, req: Request): Future[Option[MsgBase]] {.async.} =
+
+proc recvMsgImpl(transport: TransportWs, client: AsyncSocket): Future[Option[MsgBase]] {.async.} =
     try:
-      var f = await req.client.readData(false)
+      var f = await client.readData(false)
       echo "(opcode: " & $f.opcode & ", data: " & $f.data.len & ")"
 
       if f.opcode == Opcode.Text:
         result  =  transport.serializer.unserialize( f.data )
     except:
-      echo getCurrentExceptionMsg()
+      # echo getCurrentExceptionMsg()
       return
+
+proc recvMsgImpl(transport: TransportWs, clientId: ClientId): Future[Option[MsgBase]] =
+  let client = transport.clients[clientId]
+  return transport.recvMsgImpl(client)
+
+proc disconnectsImpl(transport: TransportWs, clientId: ClientId) = 
+  var client: AsyncSocket
+  if transport.clients.hasKey clientId:
+    client = transport.clients[clientId]
+    if not client.isClosed:
+      client.close()
+  transport.clients.del(clientId)
+
 
 proc onClientConnecting(transport: TransportWs, req: Request): Future[void] {.async.} =
   var 
@@ -53,7 +67,7 @@ proc onClientConnecting(transport: TransportWs, req: Request): Future[void] {.as
   ## transport main loop
   while true:
     var msgOpt: Option[MsgBase]
-    msgOpt = await transport.recvMsg(req)
+    msgOpt = await transport.recvMsgImpl(req.client)
     if msgOpt.isSome:
       await transport.msgio.onClientMsg(transport.msgio, msgOpt.get(), clientId, transport)
     else:
@@ -61,7 +75,8 @@ proc onClientConnecting(transport: TransportWs, req: Request): Future[void] {.as
       break
   
   ## Client is gone, delete it from this transport
-  transport.clients.del(clientId)
+  transport.disconnects(clientId)
+  # transport.clients.del(clientId)
 
   ## And inform the msgio server about this loss, so it can react.
   await transport.msgio.onTransportClientDisconnected(transport.msgio, clientId, transport)
@@ -110,6 +125,10 @@ proc newTransportWs*(msgio: MsgIoServer, namespace = "default", port: int = 9000
     await sendWebSocket(transport, msgio, clientId, event, data)
   result.serve = proc (): Future[void] {.async.} = 
     await serveWebSocket(transport)
+  result.recvMsg = proc (clientId: ClientId): Future[Option[MsgBase]] {.async.} = 
+    return await recvMsgImpl(transport, clientId)
+  result.disconnects = proc (clientId: ClientId) =
+    disconnectsImpl(transport, clientId)
   # result.httpCallback 
 
 when isMainModule:
