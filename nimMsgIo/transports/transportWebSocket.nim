@@ -24,7 +24,6 @@ type
     httpCallback*: HttpCallback
   ClientsWs = TableRef[ClientId, AsyncSocket]
 
-
 proc recvMsgImpl(transport: TransportWs, client: AsyncSocket): Future[Option[MsgBase]] {.async.} =
     try:
       var f = await client.readData(false)
@@ -37,6 +36,7 @@ proc recvMsgImpl(transport: TransportWs, client: AsyncSocket): Future[Option[Msg
       return
 
 proc recvMsgImpl(transport: TransportWs, clientId: ClientId): Future[Option[MsgBase]] =
+  if not transport.clients.hasKey clientId: return
   let client = transport.clients[clientId]
   return transport.recvMsgImpl(client)
 

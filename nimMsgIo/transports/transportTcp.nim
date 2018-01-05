@@ -40,6 +40,25 @@ type
   ClientsTcpStorage = tuple[socket:AsyncSocket, address: string]
   ClientsTcp = TableRef[ClientId, ClientsTcpStorage ]
 
+proc recvMsgImpl(transport: TransportTcp, client: AsyncSocket): Future[Option[MsgBase]] {.async.} =    
+    # read the msg len
+    var tcpLineStrOpt = await client.recvTransportTcpLine(transport.maxMsgLen)
+    if tcpLineStrOpt.isNone: return
+    result = transport.serializer.unserialize(tcpLineStrOpt.get())
+    
+proc recvMsgImpl(transport: TransportTcp, clientId: ClientId): Future[Option[MsgBase]] =
+  if not transport.clients.hasKey clientId: return
+  let client = transport.clients[clientId]
+  return transport.recvMsgImpl(client.socket)
+
+proc disconnectsImpl(transport: TransportTcp, clientId: ClientId) = 
+  var client: ClientsTcpStorage
+  if transport.clients.hasKey clientId:
+    client = transport.clients[clientId]
+    if not client.socket.isClosed:
+      client.socket.close()
+  transport.clients.del(clientId)
+
 proc onClientConnecting(transport: TransportTcp, address: string, socket: AsyncSocket): Future[void] {.async.} =
   var 
     clientIdOpt = await transport.msgio.onTransportClientConnecting(transport.msgio, transport)
@@ -58,22 +77,15 @@ proc onClientConnecting(transport: TransportTcp, address: string, socket: AsyncS
   ## trainsport main loop
   while true:
     var msgOpt: Option[MsgBase]
-    var buffer: string 
-    var msgLen: int
-    
-    # read the msg len
-    var tcpLineStrOpt = await socket.recvTransportTcpLine(transport.maxMsgLen)
-    if tcpLineStrOpt.isNone: break
-    msgOpt = transport.serializer.unserialize(tcpLineStrOpt.get())
-    
+    msgOpt = await transport.recvMsgImpl(socket)
     if msgOpt.isSome:
       await transport.msgio.onClientMsg(transport.msgio, msgOpt.get(), clientId, transport)
     else:
       echo "the msg could not encoded or something else..."
+      break
   
   ## Client is gone, delete it from this transport
-  socket.close()
-  transport.clients.del(clientId)
+  transport.disconnectsImpl(clientId)
 
   ## And inform the msgio server about this loss, so it can react.
   await transport.msgio.onTransportClientDisconnected(transport.msgio, clientId, transport)
@@ -142,6 +154,10 @@ proc newTransportTcp*(msgio: MsgIoServer, serializer: SerializerBase, namespace 
     await sendTcp(transport, msgio, clientId, event, data)
   result.serve = proc (): Future[void] {.async.} = 
     await serveTcp(transport)
+  result.recvMsg = proc (clientId: ClientId): Future[Option[MsgBase]] {.async.} = 
+    return await recvMsgImpl(transport, clientId)  
+  result.disconnects = proc (clientId: ClientId) =
+    disconnectsImpl(transport, clientId)
 
 when isMainModule:
   # import ../serializer/serializerMsgPack

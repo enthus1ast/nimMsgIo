@@ -51,7 +51,8 @@ when isMainModule:
   #   echo "CLIENT DISCONNECTED"
 
   echo waitFor client.connect("127.0.0.1", 9001) # Same as client.onConnect Callback
-  waitFor client.send("auth", "data")#
+  waitFor client.send("auth", "password")#
+  #waitFor client.send("auth", "data")#
   waitFor client.send("foo", "baa")
 
   runForever()
