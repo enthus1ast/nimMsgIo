@@ -194,9 +194,6 @@ when isMainModule:
     await msgio.toRoom("lobby", "eventcontrol", "payload to control namespace", "control")
     ## A demo feature useing the control namespace
     # msgio.handleControlMsg(msg, clientId, transport)
-
-    
-
     case msg.event
     of "tcp":
       await msgio.toRoom("tcp", "msg", msg.payload)
