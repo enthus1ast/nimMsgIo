@@ -9,7 +9,7 @@ socket.connect("127.0.0.1", 9001.Port)
 socket.send("msgio")
 
 var ser = newSerializerJson()
-var msg = MsgBase()
+var msg = newMsgBase()
 
 while true:
   msg.event = "testevent"
