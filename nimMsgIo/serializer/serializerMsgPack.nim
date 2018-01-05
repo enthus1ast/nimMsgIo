@@ -27,7 +27,7 @@ proc serialize(msg: MsgBase): Option[string] =
     return
 
 proc unserialize(msgstr: string): Option[MsgBase] =
-  var msg = MsgBase()
+  var msg = newMsgBase()
   try:
     var ss = newStringStream(msgstr)
     ss.unpack(msg)
@@ -43,7 +43,7 @@ proc newSerializerMsgPack*(): SerializerMsgPack =
     return unserialize(msgstr)
 
 when isMainModule:
-  var msg = MsgBase()
+  var msg = newMsgBase()
   msg.target = "123"
   msg.event = "some enduser event here"
   msg.payload = "some enduser payload here"

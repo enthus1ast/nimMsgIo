@@ -14,7 +14,7 @@ proc connect(client: MsgIoClient, host: string, port: int): Future[bool] {.async
   result = await client.transportConnect(client, host, port)
 
 proc send(client: MsgIoClient, event: string, payload: string): Future[void] {.async.} =
-  var msg = MsgBase()
+  var msg = newMsgBase()
   msg.target = "ist halt irgendwas"
   msg.event = event
   msg.payload = payload
@@ -29,7 +29,8 @@ when isMainModule:
 
   client = newMsgIoClient()
   client.transport = client.newClientTransportTcp(
-    serializer = newSerializerJson()
+    # serializer = newSerializerJson()
+    serializer = newSerializerMsgPack()
   )
 
   client.onConnected = proc (client: MsgIoClient): Future[void] {.closure, gcsafe, async.} =
@@ -42,15 +43,16 @@ when isMainModule:
 
   client.onMessage = proc (client: MsgIoClient, msg: MsgBase): Future[void] {.closure, gcsafe, async.} =
     echo $msg
-    await sleepAsync 500
-    await client.send("event", "data")
+    # await sleepAsync 500
+    # await client.send("event", "data")
     # await client.transportSend(client, msg)
 
   # client.onEvent = proc(client: MsgIoClient, msg: MsgBase): Future[void] {.closure, gcsafe.} =)
   #   echo "CLIENT DISCONNECTED"
 
   echo waitFor client.connect("127.0.0.1", 9001) # Same as client.onConnect Callback
-  # msg = await client.send("event", "data")
+  waitFor client.send("auth", "data")#
+  waitFor client.send("foo", "baa")
 
   runForever()
   # echo result.payload

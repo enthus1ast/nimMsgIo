@@ -96,15 +96,15 @@ proc pingClients(msgio: MsgIoServer): Future[void] {.async.} =
   while true:
     echo "pinging clients"
     for clientId, transport in msgio.clients:
-      let result = await transport.ping(clientId)
-      if result == false:
+      let pingResult = await transport.ping(clientId)
+      if pingResult == false:
         # client was unable to fullfill the transports ping
         await msgio.disconnects(clientId)
       else:
-        echo "ping:", result, " " ,clientId 
+        echo "ping:", pingResult, " " ,clientId 
       
-proc send*(msgio: MsgIoServer, targetClient: ClientId, event, data: string, namespace = DEFAULT_NAMESPACE): Future[void] =
-  # TODO transport send needs namespace
+proc send*(msgio: MsgIoServer, targetClient: ClientId, event, data: string): Future[void] =
+  ## Send to a client id, this crosses namespaces
   return msgio.clients[targetClient].send(msgio, targetClient, event, data)
 
 proc broadcast*(msgio: MsgIoServer, event, data: string, namespace = DEFAULT_NAMESPACE): Future[void] {.async.} =
@@ -121,13 +121,13 @@ proc toRoom*(msgio: MsgIoServer, roomId: RoomId, event, data: string, namespace 
   for clientInRoom in nsp.rooms[roomId].clients.items:
     await msgio.clients[clientInRoom].send(msgio, clientInRoom, event, data) 
 
-proc joinRoom*(msgio: MsgIoServer, clientId: ClientId, roomId: RoomId) =
+proc joinRoom*(msgio: MsgIoServer, clientId: ClientId, roomId: RoomId, namespace = DEFAULT_NAMESPACE) =
   ## convinient function let clientId join room.
-  msgio.roomLogic.joinRoom(clientId, roomId)
+  msgio.roomLogic.joinRoom(clientId, roomId, namespace)
 
-proc leaveRoom*(msgio: MsgIoServer, clientId: ClientId, roomId: RoomId) =
+proc leaveRoom*(msgio: MsgIoServer, clientId: ClientId, roomId: RoomId, namespace = DEFAULT_NAMESPACE) =
   ## convinient function let clientId join room.
-  msgio.roomLogic.leaveRoom(clientId, roomId)
+  msgio.roomLogic.leaveRoom(clientId, roomId, namespace)
 
 when isMainModule:
   import strutils
@@ -140,7 +140,7 @@ when isMainModule:
 
   var 
     msgio = newMsgIoServer()
-    # msgio.registerNamespace("foobaa")
+    # msgio.roomLogic.registerNamespace("control")
     # var foobaa = msgio.getNamespace("foobaa")
     transWs = msgio.newTransportWs(serializer = newSerializerJson())
     somevar = @["foo", "baa"] # 
@@ -155,6 +155,9 @@ when isMainModule:
       sslKeyFile = "ssl/mycert.pem", 
       sslCertFile = "ssl/mycert.pem"      
     )
+
+
+  msgio.roomLogic.registerNamespace("control") # register another namespace
 
     # {event: "foo", payload: "payload", target: "target" }
     # transUdp = msgio.newTransportUdp(serializer = newSerializerJson(), port = 9005)
@@ -182,11 +185,18 @@ when isMainModule:
     await msgio.broadcast("helloWORLD", "USER: $# connected to this server!" % [$clientId])
     msgio.joinRoom(clientId, "lobby")
     msgio.joinRoom(clientId, transport.proto)
+    msgio.joinRoom(clientId, "lobby", "control")
     echo msgio.roomLogic.getNsp().rooms
   msgio.onClientMsg = proc (msgio: MsgIoServer, msg: MsgBase, clientId: ClientId, transport: TransportBase): Future[void] {.async.} = 
     echo "in user supplied onClientMsg"
     echo "MESSAGE FROM: ", clientId
     echo msg
+    await msgio.toRoom("lobby", "eventcontrol", "payload to control namespace", "control")
+    ## A demo feature useing the control namespace
+    # msgio.handleControlMsg(msg, clientId, transport)
+
+    
+
     case msg.event
     of "tcp":
       await msgio.toRoom("tcp", "msg", msg.payload)

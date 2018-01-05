@@ -77,7 +77,7 @@ proc serveWebSocket(transport: TransportWs): Future[void] {.async.} =
   echo "websocketTransport listens on: ", $transport.port.int
 
 proc sendWebSocket(transport: TransportWs, msgio: MsgIoServer, clientId: ClientId, event, data: string): Future[void] {.async.}= 
-  var msg = MsgBase()
+  var msg = newMsgBase()
   msg.event = event
   msg.payload = data
   msg.target = $clientId # TODO what is this exactly?

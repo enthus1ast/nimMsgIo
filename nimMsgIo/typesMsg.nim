@@ -22,7 +22,8 @@ type
   # MsgClientSends = 
   
   MsgBase* = object of RootObj
-    target*: string
+    namespace*: string
+    target*: string ## TODO remove this?
     # msgType*: MsgType
     event*: string
     payload*: string
@@ -34,4 +35,9 @@ type
   #   targetType*: MsgTypeSend
   # # MsgToServer* = object
 
-
+proc newMsgBase*(): MsgBase =
+  result = MsgBase()
+  result.namespace = ""
+  result.target = ""
+  result.event = ""
+  result.payload = ""

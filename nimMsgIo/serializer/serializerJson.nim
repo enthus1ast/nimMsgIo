@@ -38,7 +38,7 @@ proc newSerializerJson*(): SerializerJson =
     return unserialize(msgstr)
 
 when isMainModule:
-  var msg = MsgBase()
+  var msg = newMsgBase()
   msg.target = "123"
   msg.event = "some enduser event here"
   msg.payload = "some enduser payload here"

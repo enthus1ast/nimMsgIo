@@ -149,7 +149,7 @@ proc serveUdp(transport: TransportUdp): Future[void] {.async.} =
     # # asyncCheck transport.handleTcp(address, socket)
 
 proc sendUdp(transport: TransportUdp, msgio: MsgIoServer, clientId: ClientId, event, data: string): Future[void] {.async.}= 
-  var msg = MsgBase()
+  var msg = newMsgBase()
   msg.event = event
   msg.payload = data
   msg.target = $clientId # TODO what is this exactly?

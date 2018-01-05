@@ -62,7 +62,7 @@ proc send*(wic: MsgIoClient, event: cstring, data: cstring ) {.exportc.}=
   ## sends data withouth a target. Server has to distribute or handle this call 
   ## in its onMsg callback. 
   # var j = .stringify( {event: "foo", payload: "pay", target: "tar"} )
-  var msg = MsgBase()
+  var msg = newMsgBase()
   msg.event = $event
   msg.payload = $data
   msg.target = "NOT YET in CLIENT"

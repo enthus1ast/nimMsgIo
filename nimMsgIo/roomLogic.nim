@@ -13,13 +13,6 @@ import sets
 import typesRoomLogic
 export typesRoomLogic
 
-# type
-
-  # NameSpace = object
-  #   name: string
-  #   roomLogic: RoomLogic
-  # NameSpaces = TableRef[string, NameSpace]
-
 const DEFAULT_NAMESPACE*: NameSpaceIdent = "default"
 
 proc newClients*(): Clients =
@@ -32,14 +25,11 @@ proc newNamespace(nameSpaceIdent: NameSpaceIdent): NameSpace =
   result = NameSpace()
   result.nameSpaceIdent = nameSpaceIdent
   result.rooms = newRooms()
-  # result.roomLogic = newRoomLogic()
 
-proc newNamespaces(): NameSpaces = 
-  result = newTable[string, NameSpace]()
+proc newNamespaces(): NameSpaces = newTable[string, NameSpace]()
 
-proc registerNamespace(roomLogic: RoomLogic, nameSpace: NameSpaceIdent) =
+proc registerNamespace*(roomLogic: RoomLogic, nameSpace: NameSpaceIdent) =
   roomLogic.nameSpaces.add(nameSpace, newNamespace(nameSpace))
-
 
 proc newRoomLogic*(namespaces: seq[NameSpaceIdent] = @[DEFAULT_NAMESPACE]): RoomLogic =
   randomize()
@@ -137,9 +127,18 @@ proc connects*(roomLogic: RoomLogic, clientId: ClientId, namespace = DEFAULT_NAM
 proc disconnects*(roomLogic: RoomLogic, clientId: ClientId, namespace = DEFAULT_NAMESPACE) =
   ## disconnects a client from the underlying logic
   if roomLogic.clientIdUsed(clientId):
-    roomLogic.leaveAllRooms(clientId)
+    for nsp in roomLogic.nameSpaces.keys:
+      roomLogic.leaveAllRooms(clientId, nsp)
     roomLogic.clients.excl(clientId)
 
+proc namespaceClients*(roomLogic: RoomLogic, namespace = DEFAULT_NAMESPACE): Clients =
+  ## returns all clients for the given namespace
+  testNamespace
+  varNsp
+  result = newClients()
+  for room in nsp.rooms.values:
+    for clientId in room.clients:
+      result.incl clientId
 
 when isMainModule:
   randomize()
