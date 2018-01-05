@@ -24,6 +24,17 @@ type
     httpCallback*: HttpCallback
   ClientsWs = TableRef[ClientId, AsyncSocket]
 
+proc recvMsg(transport: TransportWs, req: Request): Future[Option[MsgBase]] {.async.} =
+    try:
+      var f = await req.client.readData(false)
+      echo "(opcode: " & $f.opcode & ", data: " & $f.data.len & ")"
+
+      if f.opcode == Opcode.Text:
+        result  =  transport.serializer.unserialize( f.data )
+    except:
+      echo getCurrentExceptionMsg()
+      return
+
 proc onClientConnecting(transport: TransportWs, req: Request): Future[void] {.async.} =
   var 
     clientIdOpt = await transport.msgio.onTransportClientConnecting(transport.msgio, transport)
@@ -42,20 +53,12 @@ proc onClientConnecting(transport: TransportWs, req: Request): Future[void] {.as
   ## transport main loop
   while true:
     var msgOpt: Option[MsgBase]
-    try:
-      var f = await req.client.readData(false)
-      echo "(opcode: " & $f.opcode & ", data: " & $f.data.len & ")"
-
-      if f.opcode == Opcode.Text:
-        msgOpt  =  transport.serializer.unserialize( f.data )
-    except:
-      echo getCurrentExceptionMsg()
-      break  
-
+    msgOpt = await transport.recvMsg(req)
     if msgOpt.isSome:
       await transport.msgio.onClientMsg(transport.msgio, msgOpt.get(), clientId, transport)
     else:
       echo "the msg could not encoded or something else..."
+      break
   
   ## Client is gone, delete it from this transport
   transport.clients.del(clientId)
