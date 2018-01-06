@@ -107,6 +107,15 @@ proc getParticipatingClients*(roomLogic: RoomLogic, clientId: ClientId, namespac
         if clientId != roomParticipant: # filter out ourselv
           result.incl roomParticipant
 
+proc inRoom*(roomLogic: RoomLogic, clientId: ClientId, roomId: RoomId, namespace = DEFAULT_NAMESPACE): bool =
+  ## returns true if the client is in the given room.
+  result = false
+  testNamespace
+  testClient
+  varNsp
+  if not nsp.rooms.hasKey(roomId): return false
+  return nsp.rooms[roomId].clients.contains(clientId)
+
 proc clientIdUsed*(roomLogic: RoomLogic, clientId: ClientId): bool =
   return roomLogic.clients.contains(clientId)
 
@@ -171,7 +180,9 @@ when isMainModule:
   block:
     var roomLogic = newRoomLogic()
     assert true == roomLogic.connects tstId1
+    assert false == roomLogic.inRoom(tstId1, "lobby")
     roomLogic.joinRoom(tstId1, "lobby")
+    assert true == roomLogic.inRoom(tstId1, "lobby")
     assert roomLogic.namespaces["default"].rooms.hasKey("lobby")
     roomLogic.disconnects(tstId1)
     assert false == roomLogic.namespaces["default"].rooms.hasKey("lobby")
