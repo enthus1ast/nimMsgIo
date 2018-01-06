@@ -33,7 +33,7 @@ examples/
 
 # Join rooms
 Clients can be grouped in "rooms". Every client can participate in multiple rooms. 
-Clients can ask the server to join them in rooms. But the server has to fullfill this request. The default is that noone can join any rooms.
+Clients can ask the server to join them in rooms. But the server has to fullfill this request.
 
 To let clients join rooms the programmer must call joinRoom `on the server`.
 After this a client can send messages directly to the given room, the server
@@ -52,4 +52,4 @@ await msgio.toRoom("lobby", "some_event", msg.payload, namespace = "chat")
 ```
 - send sends directly to a user id
 - a broadcast is distributed to all connected clients. This does not respect the namespace!
-- toRoom can sends a message to 
+- toRoom sends a message to all room members. Also accepts a namespace!

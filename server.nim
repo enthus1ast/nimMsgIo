@@ -1,4 +1,4 @@
-# # this the preamble code to write server
+# # this the preamble code to write servers
 # import types, typesShared
 # import asyncdispatch, options, sequtils, sets
 # import roomLogic

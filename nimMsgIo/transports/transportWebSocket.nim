@@ -59,8 +59,6 @@ proc onClientConnecting(transport: TransportWs, req: Request): Future[void] {.as
     return
   clientId = clientIdOpt.get()
   transport.clients.add(clientId, req.client)
-  # echo repr clientId
-  # echo repr transport
   assert transport.msgio.onTransportClientConnected.isNil == false
   await transport.msgio.onTransportClientConnected(transport.msgio, clientId, transport)
 
@@ -98,7 +96,7 @@ proc sendWebSocket(transport: TransportWs, msgio: MsgIoServer, clientId: ClientI
   var msg = newMsgBase()
   msg.event = event
   msg.payload = data
-  msg.target = $clientId # TODO what is this exactly?
+  # msg.target = $clientId # TODO what is this exactly?
   let msgSerializedOpt = transport.serializer.serialize(msg)
   if msgSerializedOpt.isNone: 
     echo "Could not serialize msg"
@@ -110,10 +108,10 @@ proc sendWebSocket(transport: TransportWs, msgio: MsgIoServer, clientId: ClientI
     echo getCurrentExceptionMsg()
 
 proc newTransportWs*(msgio: MsgIoServer, namespace = "default", port: int = 9000, 
-    address = "", serializer: SerializerBase): TransportWs =
+    address = "", serializer: SerializerBase, proto = "ws"): TransportWs =
   result = TransportWs()
   result.msgio = msgio
-  result.proto = "ws"
+  result.proto = proto
   result.address = address
   result.port = port.Port
   result.httpServer = newAsyncHttpServer()

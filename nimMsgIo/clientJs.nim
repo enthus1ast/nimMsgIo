@@ -65,7 +65,7 @@ proc send*(wic: MsgIoClient, event: cstring, data: cstring ) {.exportc.}=
   var msg = newMsgBase()
   msg.event = $event
   msg.payload = $data
-  msg.target = "NOT YET in CLIENT"
+  # msg.target = "NOT YET in CLIENT"
   let j = $ %*msg
   # echo j
   wic.ws.send(j.cstring)

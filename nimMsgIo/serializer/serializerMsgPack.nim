@@ -44,10 +44,10 @@ proc newSerializerMsgPack*(): SerializerMsgPack =
 
 when isMainModule:
   var msg = newMsgBase()
-  msg.target = "123"
+  # msg.target = "123"
   msg.event = "some enduser event here"
   msg.payload = "some enduser payload here"
   let ser = msg.serialize()
-  var msg2 = ser.unserialize()
-  assert msg == msg2
+  var msg2 = ser.get().unserialize()
+  assert msg == msg2.get()
   

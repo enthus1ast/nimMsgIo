@@ -76,7 +76,8 @@ proc newMsgIoServer*(): MsgIoServer =
   result.onTransportClientConnecting = onTransportClientConnecting # proc (msgio: MsgIoServer): Future[Option[ClientId]] = onTransportClientConnecting(msgio)
   result.onTransportClientConnected = onTransportClientConnected # proc (msgio: MsgIoServer): Future[Option[ClientId]] = onTransportClientConnecting(msgio)
   result.onTransportClientDisconnected = onTransportClientDisconnected
-
+  # The callback lists
+  result.onClientMsgCbs = @[]
 proc disconnects*(msgio: MsgIoServer, clientId: ClientId) = 
     ## TODO WHERE TO INFORM ALL OTHER PARTICIPATING CLIENTS ABOUT THIS DISCONNECT?
     ## disconnects a client from the msgIoServer.
@@ -137,6 +138,10 @@ proc recvMsg*(msgio: MsgIoServer, clientId: ClientId): Future[Option[MsgBase]] {
   let transport = msgio.clients[clientId]
   return await transport.recvMsg(clientId)
 
+# template cc(ll: untyped, params: varargs) {.dirty.} = 
+#   for cb in ll:
+#     await cb(params)
+
 when isMainModule:
   import strutils
   import transports/transportWebSocket
@@ -144,10 +149,12 @@ when isMainModule:
   # import transports/transportUdp
   import serializer/serializerJson
   import serializer/serializerMsgPack
+  import modules/modRpc
   import asynchttpserver
 
   var 
     msgio = newMsgIoServer()
+    rpc = newRpcContext(msgio)
     # msgio.roomLogic.registerNamespace("control")
     # var foobaa = msgio.getNamespace("foobaa")
     transWs = msgio.newTransportWs(serializer = newSerializerJson())
@@ -163,7 +170,6 @@ when isMainModule:
       sslKeyFile = "ssl/mycert.pem", 
       sslCertFile = "ssl/mycert.pem"      
     )
-
 
   msgio.roomLogic.registerNamespace("control") # register another namespace
 
@@ -182,10 +188,10 @@ when isMainModule:
   msgio.addTransport(transTcpMsgPack)
   msgio.addTransport(transTcpMsgPackSsl)
   # msgio.addTransport(transUdp)
-  msgio.onClientConnecting = proc (msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[Option[ClientID]] {.async.} = #{.closure, gcsafe.} =
+  msgio.onClientConnecting = proc (msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[Option[ClientID]] {.async.} = 
     echo "CLIENT CONNECTING IN USER SERVER"
     return some clientId
-  msgio.onClientConnected = proc (msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[void] {.async.} = #{.closure, gcsafe.} =
+  msgio.onClientConnected = proc (msgio: MsgIoServer, clientId: ClientId, transport: TransportBase): Future[void] {.async.} = 
     echo "in user supplied on onClientConnected"
     await msgio.send(clientId, "event", "data")
     await msgio.send(clientId, "event", "hat funktioniert, gä? : )")
@@ -196,6 +202,8 @@ when isMainModule:
     msgio.joinRoom(clientId, "lobby", "control")
     echo msgio.roomLogic.getNsp().rooms
   msgio.onClientMsg = proc (msgio: MsgIoServer, msg: MsgBase, clientId: ClientId, transport: TransportBase): Future[void] {.async.} = 
+    # msgio.onClientMsgCbs.cc(msgio, msg, clientId, transport)
+    # await rpc.onClientMsgRPC(msg, clientId, transport)
     echo "in user supplied onClientMsg"
     echo "MESSAGE FROM: ", clientId
     echo msg

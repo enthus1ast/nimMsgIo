@@ -3,19 +3,19 @@ when not defined(js):
 else:
   import asyncjs
 import typesClient
+export typesClient
 
-proc newMsgIoClient(): MsgIoClient =
+proc newMsgIoClient*(): MsgIoClient =
   result = new MsgIoClient
 
-proc `transport=`(client: MsgIoClient, transport: ClientTransportBase) =
+proc `transport=`*(client: MsgIoClient, transport: ClientTransportBase) =
   client.transport = transport
 
-proc connect(client: MsgIoClient, host: string, port: int): Future[bool] {.async.} =
+proc connect*(client: MsgIoClient, host: string, port: int): Future[bool] {.async.} =
   result = await client.transportConnect(client, host, port)
 
-proc send(client: MsgIoClient, event: string, payload: string): Future[void] {.async.} =
+proc send*(client: MsgIoClient, event: string, payload: string): Future[void] {.async.} =
   var msg = newMsgBase()
-  msg.target = "ist halt irgendwas"
   msg.event = event
   msg.payload = payload
   await client.transportSend(client, msg)

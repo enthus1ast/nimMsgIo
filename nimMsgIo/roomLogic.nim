@@ -45,18 +45,18 @@ proc newRoom*(roomId: RoomId): Room =
   result.roomId = roomId
   result.clients = newClients()
 
-template testNamespace() {.dirty.} = 
+template testNamespace() = 
   if not roomLogic.nameSpaces.contains nameSpace:
     echo "nameSpace unknown!:", namespace
     return   
 
-template testClient() {.dirty.} = 
+template testClient() = 
   if not roomLogic.clients.contains clientId:
     echo "connect client first!:", clientId
     return
 
-template varNsp() {.dirty.} = 
-  var nsp = roomLogic.nameSpaces[namespace]     
+template varNsp() = 
+  var nsp {.inject.} = roomLogic.nameSpaces[namespace]     
 
 proc getNsp*(roomLogic: RoomLogic, namespace: NameSpaceIdent = DEFAULT_NAMESPACE): NameSpace = 
   varNsp
@@ -114,7 +114,7 @@ proc genClientId*(roomLogic: RoomLogic): ClientId =
   ## generates an unsed client id
   result = -1
   while true:
-    result = random( high(int32) )
+    result = rand( high(int32) )
     if roomLogic.clientIdUsed(result): continue
     else: break
 
@@ -145,7 +145,7 @@ when isMainModule:
   var dummyRoomLogic = newRoomLogic()
   var tstId1 = dummyRoomLogic.genClientId()
   var tstId2 = dummyRoomLogic.genClientId()
-  var tstId3 = dummyRoomLogic.genClientId()
+  # var tstId3 = dummyRoomLogic.genClientId()
   assert tstId1 != tstId2 
 
   block: # basic tests

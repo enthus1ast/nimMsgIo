@@ -30,7 +30,7 @@ type
     listenPort: Port
     namespace: string
     msgio: MsgIoServer
-    enableSsl: bool ## TODO
+    enableSsl: bool 
     sslCertFile: string # enable ssl first
     sslKeyFile: string # enable ssl first
     magicBytes: string # client has to send these directly after connection
@@ -57,7 +57,7 @@ proc disconnectsImpl(transport: TransportTcp, clientId: ClientId) =
     client = transport.clients[clientId]
     if not client.socket.isClosed:
       client.socket.close()
-  transport.clients.del(clientId)
+    transport.clients.del(clientId)
 
 proc onClientConnecting(transport: TransportTcp, address: string, socket: AsyncSocket): Future[void] {.async.} =
   var 
@@ -117,7 +117,7 @@ proc sendTcp(transport: TransportTcp, msgio: MsgIoServer, clientId: ClientId, ev
   var msg = newMsgBase()
   msg.event = event
   msg.payload = data
-  msg.target = $clientId # TODO what is this exactly?
+  # msg.target = $clientId # TODO what is this exactly?
   let msgSerializedOpt = transport.serializer.serialize(msg)
   if msgSerializedOpt.isNone:
     echo "msg could not be serialized"
@@ -126,10 +126,10 @@ proc sendTcp(transport: TransportTcp, msgio: MsgIoServer, clientId: ClientId, ev
   await transport.clients[clientId].socket.send($line)
 
 proc newTransportTcp*(msgio: MsgIoServer, serializer: SerializerBase, namespace = "default", port: int = 9001, 
-    address = "", magicBytes = "msgio", maxMsgLen = 64_000, enableSsl = false, sslCertFile = "", sslKeyFile = ""): TransportTcp =
+    address = "", magicBytes = "msgio", maxMsgLen = 64_000, enableSsl = false, sslCertFile = "", sslKeyFile = "", proto = "tcp"): TransportTcp =
   result = TransportTcp()
   result.msgio = msgio
-  result.proto = "tcp"
+  result.proto = proto
   result.enableSsl = enableSsl
   result.listenAddress = address
   result.listenPort = port.Port
