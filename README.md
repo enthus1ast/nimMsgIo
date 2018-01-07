@@ -14,7 +14,7 @@ transports/
   ## this library is able to speek
   transportWebSocket # transport for websocket and http
   transportTcp       # transport for plain TCP (net syntax)
-  transportUdp       # transport for plain UDP ( !not yet done! )
+  transportUdp       # transport for plain UDP ( !not yet ready! )
 
 serializer/
   ## implements the variouse serializers every transport can use to
@@ -47,7 +47,7 @@ await msgio.send(clientId, "event", "data")
 await msgio.broadcast("event", "my message")
 await msgio.toRoom("lobby", "some_event", msg.payload, namespace = "chat")
 ```
-- send sends directly to a user id
+- `send` sends directly to a user id
 - a broadcast is distributed to all connected clients. This does not respect the namespace!
 - toRoom sends a message to all room members. Accepts a namespace!
 

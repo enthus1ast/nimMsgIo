@@ -89,8 +89,8 @@ proc cb(req: Request, transport: TransportWs): Future[void] {.async.} =
     await transport.httpCallback( transport, transport.msgio, req )
 
 proc serveWebSocket(transport: TransportWs): Future[void] {.async.} = 
-  asyncCheck transport.httpServer.serve(transport.port, (req: Request) => cb(req, transport) )  
-  echo "websocketTransport listens on: ", $transport.port.int
+  asyncCheck transport.httpServer.serve(transport.port, (req: Request) => cb(req, transport), transport.address )  
+  echo "websocketTransport listens on: ", transport.address & ":" & $transport.port.int
 
 proc sendWebSocket(transport: TransportWs, msgio: MsgIoServer, clientId: ClientId, event, data: string): Future[void] {.async.}= 
   var msg = newMsgBase()
@@ -108,7 +108,7 @@ proc sendWebSocket(transport: TransportWs, msgio: MsgIoServer, clientId: ClientI
     echo getCurrentExceptionMsg()
 
 proc newTransportWs*(msgio: MsgIoServer, namespace = "default", port: int = 9000, 
-    address = "", serializer: SerializerBase, proto = "ws"): TransportWs =
+    address = "0.0.0.0", serializer: SerializerBase, proto = "ws"): TransportWs =
   result = TransportWs()
   result.msgio = msgio
   result.proto = proto

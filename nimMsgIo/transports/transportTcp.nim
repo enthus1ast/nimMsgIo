@@ -102,8 +102,8 @@ proc handleTcp(transport: TransportTcp, address: string, socket: AsyncSocket): F
   asyncCheck onClientConnecting(transport, address, socket)
 
 proc serveTcp(transport: TransportTcp): Future[void] {.async.} = 
-  echo "tcpTransport listens on: ", $transport.listenPort.int
-  transport.tcpServer.bindAddr(Port(transport.listenPort))
+  echo "tcpTransport listens on: ", transport.listenAddress & ":" & $transport.listenPort.int
+  transport.tcpServer.bindAddr(Port(transport.listenPort), transport.listenAddress)
   transport.tcpServer.listen()
   while true:
     let (address, socket) = await transport.tcpServer.acceptAddr()
@@ -126,7 +126,7 @@ proc sendTcp(transport: TransportTcp, msgio: MsgIoServer, clientId: ClientId, ev
   await transport.clients[clientId].socket.send($line)
 
 proc newTransportTcp*(msgio: MsgIoServer, serializer: SerializerBase, namespace = "default", port: int = 9001, 
-    address = "", magicBytes = "msgio", maxMsgLen = 64_000, enableSsl = false, sslCertFile = "", sslKeyFile = "", proto = "tcp"): TransportTcp =
+    address = "0.0.0.0", magicBytes = "msgio", maxMsgLen = 64_000, enableSsl = false, sslCertFile = "", sslKeyFile = "", proto = "tcp"): TransportTcp =
   result = TransportTcp()
   result.msgio = msgio
   result.proto = proto
