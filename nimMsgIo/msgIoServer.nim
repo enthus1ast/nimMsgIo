@@ -149,12 +149,12 @@ when isMainModule:
   # import transports/transportUdp
   import serializer/serializerJson
   import serializer/serializerMsgPack
-  import modules/modRpc
+  # import modules/modRpc
   import asynchttpserver
 
   var 
     msgio = newMsgIoServer()
-    rpc = newRpcContext(msgio)
+    # rpc = newRpcContext(msgio)
     # msgio.roomLogic.registerNamespace("control")
     # var foobaa = msgio.getNamespace("foobaa")
     transWs = msgio.newTransportWs(serializer = newSerializerJson())
